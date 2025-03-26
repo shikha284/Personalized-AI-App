@@ -1,12 +1,11 @@
-import streamlit as st
 import json
+import streamlit as st
 
-# Write secrets to files
-with open("gmail_client_credentials.json", "w") as f:
-    json.dump(st.secrets["gmail_cred"], f)
+with open("gmail_credentials.json", "w") as f:
+    json.dump(dict(st.secrets["gmail_cred"]), f)
 
 with open("credentials.json", "w") as f:
-    json.dump(st.secrets["google_service"], f)
+    json.dump(dict(st.secrets["google_service"]), f)
 
 from google.oauth2 import service_account
 from googleapiclient.discovery import build
@@ -15,7 +14,7 @@ import streamlit as st
 @st.cache_resource
 def get_gmail_service():
     creds = service_account.Credentials.from_service_account_info(
-        st.secrets["google_service"],
+        st.secrets["gmail_cred"],
         scopes=["https://www.googleapis.com/auth/gmail.send"]
     )
     return build("gmail", "v1", credentials=creds)
