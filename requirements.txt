@@ -1,7 +1,6 @@
 streamlit
 torch
 transformers
-json
 google-auth
 google-auth-oauthlib
 google-auth-httplib2
