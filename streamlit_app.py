@@ -1,5 +1,9 @@
+
 import json
 import streamlit as st
+
+st.title("Personalized LLaMA 3 App")
+st.write("App is loading...")
 
 with open("gmail_credentials.json", "w") as f:
     json.dump(dict(st.secrets["gmail_cred"]), f)
