@@ -3,13 +3,6 @@ import streamlit as st
 from datetime import datetime
 from zoom_utils import schedule_zoom_meeting, add_to_calendar, send_email_reminder
 
-# 🔐 Save secrets to files if needed (useful for legacy Google APIs)
-with open("gmail_credentials.json", "w") as f:
-    json.dump(dict(st.secrets["gmail_cred"]), f)
-
-with open("credentials.json", "w") as f:
-    json.dump(dict(st.secrets["google_service_account"]), f)
-
 st.set_page_config(page_title="Shikha's AI Assistant")
 
 st.title("🤖 Shikha's Personalized AI Assistant")
