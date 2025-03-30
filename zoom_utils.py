@@ -17,10 +17,7 @@ MAILJET_API_KEY = st.secrets["mailjet"]["api_key"]
 MAILJET_SECRET_KEY = st.secrets["mailjet"]["secret_key"]
 SENDER_EMAIL = st.secrets["sender_email"]
 
-# Google Calendar (Service Account)
-GOOGLE_CREDS = service_account.Credentials.from_service_account_info(
-    st.secrets["google_service_account"]
-)
+GOOGLE_CREDS = service_account.Credentials.from_service_account_file("credentials.json")
 calendar_service = build("calendar", "v3", credentials=GOOGLE_CREDS)
 
 # 🔹 Zoom Token
@@ -38,7 +35,7 @@ def get_zoom_access_token():
     response = requests.post("https://zoom.us/oauth/token", headers=headers, data=data)
     return response.json().get("access_token")
 
-# 🔹 Schedule Zoom
+# 🔹 Schedule Zoom Meeting
 def schedule_zoom_meeting(topic, start_time, duration, time_zone):
     access_token = get_zoom_access_token()
     if not access_token:
@@ -72,7 +69,7 @@ def schedule_zoom_meeting(topic, start_time, duration, time_zone):
     else:
         return None, f"❌ Zoom scheduling failed: {res.json()}"
 
-# 🔹 Add to Calendar
+# 🔹 Add to Google Calendar
 def add_to_calendar(topic, start_time, duration, time_zone, zoom_link):
     end_time = start_time + timedelta(minutes=duration)
     event = {
@@ -89,20 +86,19 @@ def add_to_calendar(topic, start_time, duration, time_zone, zoom_link):
     created_event = calendar_service.events().insert(calendarId="primary", body=event).execute()
     return created_event.get("htmlLink")
 
-# 🔹 Mailjet Email Reminder
+# 🔹 Send Email via Mailjet
 def send_email_reminder(subject, body, recipients):
     url = "https://api.mailjet.com/v3.1/send"
     headers = {"Content-Type": "application/json"}
-    data = {
-        "Messages": [
-            {
-                "From": {"Email": SENDER_EMAIL, "Name": "Shikha Assistant"},
-                "To": [{"Email": email.strip(), "Name": email.strip().split("@")[0]} for email in recipients],
-                "Subject": subject,
-                "TextPart": body,
-                "HTMLPart": f"<p>{body}</p>"
-            }
-        ]
-    }
+    messages = [
+        {
+            "From": {"Email": SENDER_EMAIL, "Name": "Shikha Assistant"},
+            "To": [{"Email": email.strip(), "Name": email.strip().split("@")[0]} for email in recipients],
+            "Subject": subject,
+            "TextPart": body,
+            "HTMLPart": f"<p>{body}</p>"
+        }
+    ]
+    data = {"Messages": messages}
     response = requests.post(url, auth=(MAILJET_API_KEY, MAILJET_SECRET_KEY), headers=headers, json=data)
     return response.status_code == 200
