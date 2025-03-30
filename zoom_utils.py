@@ -35,7 +35,7 @@ def authenticate_google(interactive=False, auth_code=None):
             creds.refresh(Request())
             with open("token.pkl", "wb") as token:
                 pickle.dump(creds, token)
-            return True if interactive else creds
+            return creds
 
     flow = Flow.from_client_config(
         CLIENT_CONFIG,

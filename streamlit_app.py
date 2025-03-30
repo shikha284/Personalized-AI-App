@@ -1,20 +1,19 @@
-import json
 import streamlit as st
 from datetime import datetime
-from zoom_utils import schedule_zoom_meeting, add_to_calendar, send_email_reminder, authenticate_google
+from zoom_utils import (
+    schedule_zoom_meeting,
+    add_to_calendar,
+    send_email_reminder,
+    authenticate_google
+)
 
-st.set_page_config(page_title="Shikha's AI Assistant")
+st.set_page_config(page_title="Shikha's Personalized AI Assistant")
 
 st.title("🤖 Shikha's Personalized AI Assistant")
 
-if "step" not in st.session_state:
-    st.session_state.step = "greet"
-if "google_authed" not in st.session_state:
-    st.session_state.google_authed = False
-
-# Google Authentication
-if not st.session_state.google_authed:
-    st.markdown("### 🔐 Google Authorization Required")
+# Step 0: Check and handle Google authorization
+if not st.session_state.get("google_authenticated"):
+    st.subheader("🔐 Google Authorization Required")
     auth_url, code_key = authenticate_google(interactive=True)
     st.markdown(f"[Click here to authorize Google access]({auth_url})")
     auth_code = st.text_input("Paste the authorization code here:", key=code_key)
@@ -22,13 +21,16 @@ if not st.session_state.google_authed:
     if auth_code:
         success = authenticate_google(interactive=True, auth_code=auth_code)
         if success:
-            st.session_state.google_authed = True
-            st.success("✅ Google access granted!")
+            st.session_state.google_authenticated = True
+            st.rerun()
         else:
-            st.error("❌ Invalid authorization code.")
+            st.error("❌ Authorization failed. Please try again.")
     st.stop()
 
-# Main Assistant Flow
+# Step 1: Greet and accept instruction
+if "step" not in st.session_state:
+    st.session_state.step = "greet"
+
 if st.session_state.step == "greet":
     st.write("Hi there! 👋 I'm your AI Assistant. What would you like me to do today?")
     user_input = st.text_input("Your instruction:")
@@ -38,6 +40,7 @@ if st.session_state.step == "greet":
         else:
             st.warning("Sorry, I can currently only help with Zoom meeting scheduling.")
 
+# Step 2: Schedule meeting flow
 if st.session_state.step == "collect_zoom_info":
     st.subheader("📅 Let's schedule your Zoom Meeting!")
 
@@ -60,7 +63,7 @@ if st.session_state.step == "collect_zoom_info":
                 email_sent = send_email_reminder(
                     subject=f"📌 Zoom Meeting: {topic}",
                     body=f"Join Zoom Meeting: {zoom_link} at {start_datetime.strftime('%Y-%m-%d %H:%M')} ({timezone})",
-                    recipients=emails.split(",")
+                    recipients=[email.strip() for email in emails.split(",")]
                 )
                 st.success("✅ Zoom Meeting Scheduled Successfully!")
                 st.markdown(f"[🔗 Join Zoom Meeting]({zoom_link})")
