@@ -2,10 +2,10 @@ import os
 import base64
 import pytz
 import requests
+import streamlit as st
 from datetime import datetime, timedelta
 from googleapiclient.discovery import build
-from google.oauth2.credentials import Credentials
-import streamlit as st
+from google.oauth2 import service_account
 
 # Zoom credentials from secrets
 ZOOM_CLIENT_ID = st.secrets["zoom"]["client_id"]
@@ -15,10 +15,12 @@ ZOOM_ACCOUNT_ID = st.secrets["zoom"]["account_id"]
 # Mailjet credentials
 MAILJET_API_KEY = st.secrets["mailjet"]["api_key"]
 MAILJET_SECRET_KEY = st.secrets["mailjet"]["secret_key"]
+SENDER_EMAIL = st.secrets["sender_email"]
 
-# Google Calendar credentials (service account)
-from google.oauth2 import service_account
-GOOGLE_CREDS = service_account.Credentials.from_service_account_info(st.secrets["google_service_account"])
+# Google Calendar (Service Account)
+GOOGLE_CREDS = service_account.Credentials.from_service_account_info(
+    st.secrets["google_service_account"]
+)
 calendar_service = build("calendar", "v3", credentials=GOOGLE_CREDS)
 
 # 🔹 Zoom Token
@@ -41,7 +43,7 @@ def schedule_zoom_meeting(topic, start_time, duration, time_zone):
     access_token = get_zoom_access_token()
     if not access_token:
         return None, "❌ Zoom access token error."
-    
+
     headers = {
         "Authorization": f"Bearer {access_token}",
         "Content-Type": "application/json"
@@ -94,10 +96,7 @@ def send_email_reminder(subject, body, recipients):
     data = {
         "Messages": [
             {
-                "From": {
-                    "Email": "youremail@example.com",
-                    "Name": "Shikha Assistant"
-                },
+                "From": {"Email": SENDER_EMAIL, "Name": "Shikha Assistant"},
                 "To": [{"Email": email.strip(), "Name": email.strip().split("@")[0]} for email in recipients],
                 "Subject": subject,
                 "TextPart": body,
@@ -107,4 +106,3 @@ def send_email_reminder(subject, body, recipients):
     }
     response = requests.post(url, auth=(MAILJET_API_KEY, MAILJET_SECRET_KEY), headers=headers, json=data)
     return response.status_code == 200
-
