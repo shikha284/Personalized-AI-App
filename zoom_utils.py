@@ -7,20 +7,21 @@ from datetime import datetime, timedelta
 from googleapiclient.discovery import build
 from google.oauth2 import service_account
 
-# Zoom credentials from secrets
-ZOOM_CLIENT_ID = st.secrets["zoom"]["client_id"]
-ZOOM_CLIENT_SECRET = st.secrets["zoom"]["client_secret"]
-ZOOM_ACCOUNT_ID = st.secrets["zoom"]["account_id"]
+# ✅ Zoom credentials from secrets
+ZOOM_CLIENT_ID = str(st.secrets["zoom"]["client_id"])
+ZOOM_CLIENT_SECRET = str(st.secrets["zoom"]["client_secret"])
+ZOOM_ACCOUNT_ID = str(st.secrets["zoom"]["account_id"])
 
-# Mailjet credentials
-MAILJET_API_KEY = st.secrets["mailjet"]["api_key"]
-MAILJET_SECRET_KEY = st.secrets["mailjet"]["secret_key"]
-SENDER_EMAIL = st.secrets["sender_email"]
+# ✅ Mailjet credentials
+MAILJET_API_KEY = str(st.secrets["mailjet"]["api_key"])
+MAILJET_SECRET_KEY = str(st.secrets["mailjet"]["secret_key"])
+SENDER_EMAIL = str(st.secrets["sender_email"])
 
+# ✅ Google Service Account
 GOOGLE_CREDS = service_account.Credentials.from_service_account_file("credentials.json")
 calendar_service = build("calendar", "v3", credentials=GOOGLE_CREDS)
 
-# 🔹 Zoom Token
+# 🔹 Get Zoom OAuth Token
 def get_zoom_access_token():
     auth_string = f"{ZOOM_CLIENT_ID}:{ZOOM_CLIENT_SECRET}"
     auth_base64 = base64.b64encode(auth_string.encode("utf-8")).decode("utf-8")
@@ -45,14 +46,15 @@ def schedule_zoom_meeting(topic, start_time, duration, time_zone):
         "Authorization": f"Bearer {access_token}",
         "Content-Type": "application/json"
     }
+
     tz = pytz.timezone(time_zone)
     zoom_time = tz.localize(start_time).astimezone(pytz.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
 
     meeting_data = {
-        "topic": topic,
+        "topic": str(topic),
         "type": 2,
         "start_time": zoom_time,
-        "duration": duration,
+        "duration": int(duration),
         "timezone": "UTC",
         "agenda": f"{topic} discussion",
         "settings": {
@@ -73,7 +75,7 @@ def schedule_zoom_meeting(topic, start_time, duration, time_zone):
 def add_to_calendar(topic, start_time, duration, time_zone, zoom_link):
     end_time = start_time + timedelta(minutes=duration)
     event = {
-        "summary": topic,
+        "summary": str(topic),
         "location": "Zoom",
         "description": f"Join Zoom Meeting: {zoom_link}",
         "start": {"dateTime": start_time.isoformat(), "timeZone": time_zone},
@@ -86,19 +88,31 @@ def add_to_calendar(topic, start_time, duration, time_zone, zoom_link):
     created_event = calendar_service.events().insert(calendarId="primary", body=event).execute()
     return created_event.get("htmlLink")
 
-# 🔹 Send Email via Mailjet
+# 🔹 Mailjet Email Reminder (Fixed JSON Serialization)
 def send_email_reminder(subject, body, recipients):
     url = "https://api.mailjet.com/v3.1/send"
     headers = {"Content-Type": "application/json"}
+
+    # Ensure all recipients are plain strings
+    recipients = [str(email).strip() for email in recipients]
+
     messages = [
         {
-            "From": {"Email": SENDER_EMAIL, "Name": "Shikha Assistant"},
-            "To": [{"Email": email.strip(), "Name": email.strip().split("@")[0]} for email in recipients],
-            "Subject": subject,
-            "TextPart": body,
+            "From": {"Email": str(SENDER_EMAIL), "Name": "Shikha Assistant"},
+            "To": [{"Email": email, "Name": email.split("@")[0]} for email in recipients],
+            "Subject": str(subject),
+            "TextPart": str(body),
             "HTMLPart": f"<p>{body}</p>"
         }
     ]
     data = {"Messages": messages}
+
+    try:
+        # Optional: Test if JSON-serializable (for debugging)
+        _ = requests.models.complexjson.dumps(data)
+    except TypeError as e:
+        st.error(f"❌ JSON Serialization Error: {e}")
+        return False
+
     response = requests.post(url, auth=(MAILJET_API_KEY, MAILJET_SECRET_KEY), headers=headers, json=data)
     return response.status_code == 200
