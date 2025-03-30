@@ -5,21 +5,18 @@ import requests
 import streamlit as st
 from datetime import datetime, timedelta
 from googleapiclient.discovery import build
-from google.oauth2 import service_account
+from google_auth_oauthlib.flow import Flow
+from google.oauth2.credentials import Credentials
 
 # Zoom credentials
 ZOOM_CLIENT_ID = st.secrets["zoom"]["client_id"]
 ZOOM_CLIENT_SECRET = st.secrets["zoom"]["client_secret"]
 ZOOM_ACCOUNT_ID = st.secrets["zoom"]["account_id"]
 
-# Mailjet credentials (cast to str to avoid AttrDict issue)
-MAILJET_API_KEY = str(st.secrets["mailjet"]["api_key"])
-MAILJET_SECRET_KEY = str(st.secrets["mailjet"]["secret_key"])
-SENDER_EMAIL = str(st.secrets["sender_email"])
-
-# Google Calendar Service Account
-GOOGLE_CREDS = service_account.Credentials.from_service_account_file("credentials.json")
-calendar_service = build("calendar", "v3", credentials=GOOGLE_CREDS)
+# Gmail + Calendar client OAuth credentials
+CLIENT_CONFIG = {
+    "web": dict(st.secrets["gmail_cred"])
+}
 
 # 🔹 Zoom Token
 def get_zoom_access_token():
@@ -35,6 +32,22 @@ def get_zoom_access_token():
     }
     response = requests.post("https://zoom.us/oauth/token", headers=headers, data=data)
     return response.json().get("access_token")
+
+# 🔹 Google OAuth Flow
+def authenticate_google():
+    flow = Flow.from_client_config(
+        client_config=CLIENT_CONFIG,
+        scopes=["https://www.googleapis.com/auth/calendar", "https://www.googleapis.com/auth/gmail.send"],
+        redirect_uri=CLIENT_CONFIG["web"]["redirect_uris"][0]
+    )
+
+    if "credentials" not in st.session_state:
+        auth_url, _ = flow.authorization_url(prompt="consent")
+        st.markdown(f"[Click here to authorize Google Access]({auth_url})")
+        st.stop()
+
+    creds = Credentials(**st.session_state.credentials)
+    return creds
 
 # 🔹 Schedule Zoom Meeting
 def schedule_zoom_meeting(topic, start_time, duration, time_zone):
@@ -72,6 +85,9 @@ def schedule_zoom_meeting(topic, start_time, duration, time_zone):
 
 # 🔹 Add to Google Calendar
 def add_to_calendar(topic, start_time, duration, time_zone, zoom_link):
+    creds = authenticate_google()
+    calendar_service = build("calendar", "v3", credentials=creds)
+
     end_time = start_time + timedelta(minutes=duration)
     event = {
         "summary": topic,
@@ -79,27 +95,29 @@ def add_to_calendar(topic, start_time, duration, time_zone, zoom_link):
         "description": f"Join Zoom Meeting: {zoom_link}",
         "start": {"dateTime": start_time.isoformat(), "timeZone": time_zone},
         "end": {"dateTime": end_time.isoformat(), "timeZone": time_zone},
-        "reminders": {
-            "useDefault": False,
-            "overrides": [{"method": "popup", "minutes": 10}]
-        }
+        "reminders": {"useDefault": False, "overrides": [{"method": "popup", "minutes": 10}]}
     }
+
     created_event = calendar_service.events().insert(calendarId="primary", body=event).execute()
     return created_event.get("htmlLink")
 
-# 🔹 Send Email via Mailjet
+# 🔹 Send Email using Gmail API
 def send_email_reminder(subject, body, recipients):
-    url = "https://api.mailjet.com/v3.1/send"
-    headers = {"Content-Type": "application/json"}
-    messages = [
-        {
-            "From": {"Email": SENDER_EMAIL, "Name": "Shikha Assistant"},
-            "To": [{"Email": str(email).strip(), "Name": str(email).strip().split("@")[0]} for email in recipients],
-            "Subject": str(subject),
-            "TextPart": str(body),
-            "HTMLPart": f"<p>{body}</p>"
-        }
-    ]
-    data = {"Messages": messages}
-    response = requests.post(url, auth=(MAILJET_API_KEY, MAILJET_SECRET_KEY), headers=headers, json=data)
-    return response.status_code == 200
+    creds = authenticate_google()
+    service = build("gmail", "v1", credentials=creds)
+
+    from email.mime.text import MIMEText
+    import base64
+
+    message = MIMEText(body)
+    message["to"] = ", ".join(recipients)
+    message["from"] = creds._client_id
+    message["subject"] = subject
+
+    raw_message = base64.urlsafe_b64encode(message.as_bytes()).decode()
+    try:
+        service.users().messages().send(userId="me", body={"raw": raw_message}).execute()
+        return True
+    except Exception as e:
+        st.error(f"❌ Gmail API Error: {e}")
+        return False

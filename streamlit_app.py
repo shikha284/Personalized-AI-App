@@ -10,9 +10,10 @@ with open("gmail_credentials.json", "w") as f:
 with open("credentials.json", "w") as f:
     json.dump(dict(st.secrets["google_service_account"]), f)
 
+st.set_page_config(page_title="Shikha's AI Assistant")
+
 st.title("🤖 Shikha's Personalized AI Assistant")
 
-# Initial greeting
 if "step" not in st.session_state:
     st.session_state.step = "greet"
 
@@ -28,9 +29,9 @@ if st.session_state.step == "greet":
 if st.session_state.step == "collect_zoom_info":
     st.subheader("📅 Let's schedule your Zoom Meeting!")
 
-    topic = st.text_input("Meeting Topic", key="topic")
-    date = st.date_input("Meeting Date", key="date")
-    time = st.time_input("Meeting Time", key="time")
+    topic = st.text_input("Meeting Topic")
+    date = st.date_input("Meeting Date")
+    time = st.time_input("Meeting Time")
     duration = st.number_input("Duration (minutes)", min_value=15, max_value=240, value=30)
     timezone = st.selectbox("Time Zone", ["Asia/Kolkata", "America/Los_Angeles", "UTC"])
     emails = st.text_area("Participant Emails (comma-separated)")
@@ -52,13 +53,11 @@ if st.session_state.step == "collect_zoom_info":
                 st.success("✅ Zoom Meeting Scheduled Successfully!")
                 st.markdown(f"[🔗 Join Zoom Meeting]({zoom_link})")
                 st.markdown(f"[📅 View in Calendar]({cal_link})")
-
                 if email_sent:
-                    st.success("📧 Email invitations sent via Mailjet!")
+                    st.success("📧 Email invitations sent via Gmail!")
                 else:
                     st.warning("⚠️ Email sending failed.")
             else:
                 st.error(zoom_status)
 
-            # Reset state to start new conversation
             st.session_state.step = "greet"
