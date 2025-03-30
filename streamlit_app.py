@@ -1,7 +1,7 @@
 import json
 import streamlit as st
 from datetime import datetime
-from zoom_utils import schedule_zoom_meeting, add_to_calendar, send_email_reminder
+from zoom_utils import schedule_zoom_meeting, add_to_calendar, send_email_reminder, authenticate_google
 
 st.set_page_config(page_title="Shikha's AI Assistant")
 
@@ -9,7 +9,26 @@ st.title("🤖 Shikha's Personalized AI Assistant")
 
 if "step" not in st.session_state:
     st.session_state.step = "greet"
+if "google_authed" not in st.session_state:
+    st.session_state.google_authed = False
 
+# Google Authentication
+if not st.session_state.google_authed:
+    st.markdown("### 🔐 Google Authorization Required")
+    auth_url, code_key = authenticate_google(interactive=True)
+    st.markdown(f"[Click here to authorize Google access]({auth_url})")
+    auth_code = st.text_input("Paste the authorization code here:", key=code_key)
+
+    if auth_code:
+        success = authenticate_google(interactive=True, auth_code=auth_code)
+        if success:
+            st.session_state.google_authed = True
+            st.success("✅ Google access granted!")
+        else:
+            st.error("❌ Invalid authorization code.")
+    st.stop()
+
+# Main Assistant Flow
 if st.session_state.step == "greet":
     st.write("Hi there! 👋 I'm your AI Assistant. What would you like me to do today?")
     user_input = st.text_input("Your instruction:")

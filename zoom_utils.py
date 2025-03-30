@@ -1,22 +1,20 @@
 import os
 import base64
 import pytz
-import requests
 import pickle
 import streamlit as st
 from datetime import datetime, timedelta
 from googleapiclient.discovery import build
 from google_auth_oauthlib.flow import Flow
 from google.auth.transport.requests import Request
+from email.mime.text import MIMEText
 
 # Zoom credentials
 ZOOM_CLIENT_ID = st.secrets["zoom"]["client_id"]
 ZOOM_CLIENT_SECRET = st.secrets["zoom"]["client_secret"]
 ZOOM_ACCOUNT_ID = st.secrets["zoom"]["account_id"]
 
-# Mailjet fallback removed
-
-# Gmail/Calendar credentials via OAuth2
+# Google OAuth2 configuration
 CLIENT_CONFIG = {
     "web": {
         "client_id": st.secrets["gmail_oauth"]["client_id"],
@@ -27,38 +25,47 @@ CLIENT_CONFIG = {
     }
 }
 
-def authenticate_google():
-    creds = None
+def authenticate_google(interactive=False, auth_code=None):
     if os.path.exists("token.pkl"):
         with open("token.pkl", "rb") as token:
             creds = pickle.load(token)
-    if not creds or not creds.valid:
+        if creds and creds.valid:
+            return True if interactive else creds
         if creds and creds.expired and creds.refresh_token:
             creds.refresh(Request())
-        else:
-            flow = Flow.from_client_config(
-                CLIENT_CONFIG,
-                scopes=[
-                    "https://www.googleapis.com/auth/calendar.events",
-                    "https://www.googleapis.com/auth/gmail.send"
-                ],
-                redirect_uri=CLIENT_CONFIG["web"]["redirect_uris"][0]
-            )
-            auth_url, _ = flow.authorization_url(prompt="consent")
-            st.markdown(f"[Click here to authorize Google access]({auth_url})")
-            code = st.text_input("Paste the authorization code here", key="auth_code_input")
-            if code:
-                flow.fetch_token(code=code)
-                creds = flow.credentials
-                with open("token.pkl", "wb") as token:
-                    pickle.dump(creds, token)
-    return creds
+            with open("token.pkl", "wb") as token:
+                pickle.dump(creds, token)
+            return True if interactive else creds
+
+    flow = Flow.from_client_config(
+        CLIENT_CONFIG,
+        scopes=[
+            "https://www.googleapis.com/auth/calendar.events",
+            "https://www.googleapis.com/auth/gmail.send"
+        ],
+        redirect_uri=CLIENT_CONFIG["web"]["redirect_uris"][0]
+    )
+
+    if interactive and auth_code is None:
+        auth_url, _ = flow.authorization_url(prompt="consent")
+        return auth_url, "auth_code_input"
+    elif interactive and auth_code:
+        try:
+            flow.fetch_token(code=auth_code)
+            creds = flow.credentials
+            with open("token.pkl", "wb") as token:
+                pickle.dump(creds, token)
+            return True
+        except Exception as e:
+            print("❌ Token fetch failed:", e)
+            return False
+    return None
 
 def add_to_calendar(topic, start_time, duration, time_zone, zoom_link):
     creds = authenticate_google()
     if not creds:
         return "❌ Google authentication failed"
-    
+
     service = build("calendar", "v3", credentials=creds)
     end_time = start_time + timedelta(minutes=duration)
     event = {
@@ -76,10 +83,8 @@ def send_email_reminder(subject, body, recipients):
     creds = authenticate_google()
     if not creds:
         return False
-    
+
     service = build("gmail", "v1", credentials=creds)
-    from email.mime.text import MIMEText
-    import base64
 
     for email in recipients:
         msg = MIMEText(body)
