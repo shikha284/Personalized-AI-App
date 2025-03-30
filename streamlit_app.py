@@ -50,6 +50,7 @@ if st.session_state.step == "collect_zoom_info":
                     recipients=emails.split(",")
                 )
                 st.success("✅ Zoom Meeting Scheduled Successfully!")
+                st.markdown(f"[🔗 Join Zoom Meeting]({zoom_link})")
                 st.markdown(f"[📅 View in Calendar]({cal_link})")
 
                 if email_sent:
