@@ -46,7 +46,7 @@ def authenticate_google():
             )
             auth_url, _ = flow.authorization_url(prompt="consent")
             st.markdown(f"[Click here to authorize Google access]({auth_url})")
-            code = st.text_input("Paste the authorization code here")
+            code = st.text_input("Paste the authorization code here", key="auth_code_input")
             if code:
                 flow.fetch_token(code=code)
                 creds = flow.credentials
