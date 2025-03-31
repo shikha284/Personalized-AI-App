@@ -1,21 +1,31 @@
 import os
 import base64
-import pytz
 import pickle
-import requests  # ✅ Add this line
+import pytz
+import requests
 import streamlit as st
+import psycopg2
+import pandas as pd
 from datetime import datetime, timedelta
+from email.mime.text import MIMEText
 from googleapiclient.discovery import build
 from google_auth_oauthlib.flow import Flow
 from google.auth.transport.requests import Request
-from email.mime.text import MIMEText
+from groq import Groq  # ✅ LLaMA 3.3 Integration
 
-# Zoom credentials
-ZOOM_CLIENT_ID = st.secrets["zoom"]["client_id"]
-ZOOM_CLIENT_SECRET = st.secrets["zoom"]["client_secret"]
-ZOOM_ACCOUNT_ID = st.secrets["zoom"]["account_id"]
+# ✅ Groq API Setup
+client = Groq(api_key=st.secrets["groq"]["api_key"])
 
-# Google OAuth2 configuration
+# ✅ PostgreSQL Vector DB Configuration
+DB_CONFIG = {
+    "host": "vijayrag.c9uac2i2ihy2.us-east-1.rds.amazonaws.com",
+    "port": 5432,
+    "user": "vijay_admin",
+    "password": "vijay_secure_password_2025",
+    "database": "mydatabase"
+}
+
+# ✅ Google OAuth2 configuration
 CLIENT_CONFIG = {
     "web": {
         "client_id": st.secrets["gmail_oauth"]["client_id"],
@@ -26,6 +36,7 @@ CLIENT_CONFIG = {
     }
 }
 
+# ---------- 🔐 Google Auth ----------
 def authenticate_google(interactive=False, auth_code=None):
     if os.path.exists("token.pkl"):
         with open("token.pkl", "rb") as token:
@@ -36,7 +47,7 @@ def authenticate_google(interactive=False, auth_code=None):
             creds.refresh(Request())
             with open("token.pkl", "wb") as token:
                 pickle.dump(creds, token)
-            return creds
+            return True if interactive else creds
 
     flow = Flow.from_client_config(
         CLIENT_CONFIG,
@@ -62,6 +73,32 @@ def authenticate_google(interactive=False, auth_code=None):
             return False
     return None
 
+# ---------- ✅ DB Connection & Meeting Summary ----------
+def connect_to_db():
+    try:
+        return psycopg2.connect(**DB_CONFIG)
+    except Exception as e:
+        print("❌ DB Connection Error:", e)
+        return None
+
+def fetch_recent_meetings(n=2):
+    conn = connect_to_db()
+    if not conn:
+        return None
+    df = pd.read_sql("SELECT * FROM embeddings_shikha_20250324 WHERE category='meetings' ORDER BY date DESC LIMIT %s", conn, params=(n,))
+    df['date'] = pd.to_datetime(df['date'], errors='coerce')
+    conn.close()
+    return df
+
+def summarize_meetings(df):
+    combined_text = " ".join(df['content'].tolist())[:4000]  # truncate for model input
+    completion = client.chat.completions.create(
+        model="llama-3.3-70b-specdec",
+        messages=[{"role": "user", "content": f"Summarize this meeting transcript: {combined_text}"}]
+    )
+    return completion.choices[0].message.content
+
+# ---------- 📅 Calendar + Gmail ----------
 def add_to_calendar(topic, start_time, duration, time_zone, zoom_link):
     creds = authenticate_google()
     if not creds:
@@ -80,39 +117,38 @@ def add_to_calendar(topic, start_time, duration, time_zone, zoom_link):
     created_event = service.events().insert(calendarId="primary", body=event).execute()
     return created_event.get("htmlLink")
 
-def send_email_reminder(subject, body, recipients):
+def send_email_reminder(subject, body_dict, recipients):
     creds = authenticate_google()
     if not creds:
         return False
 
     service = build("gmail", "v1", credentials=creds)
 
-    for email in recipients:
-        # ✅ Construct proper HTML from the dict
-        html_body = f"""
-        <html>
-        <body>
-            <p>Hi there,</p>
-            <p>You are invited to the following Zoom meeting:</p>
-            <p><strong>📌 Topic:</strong> {subject.replace("📌 Zoom Meeting: ", "")}<br>
-            <strong>🕒 Time:</strong> {body.get("time")}<br>
-            <strong>🔗 Join Zoom Meeting:</strong> <a href="{body.get("link")}">{body.get("link")}</a></p>
-            <p>Please join on time.</p>
-            <p>Regards,<br>Shikha</p>
-        </body>
-        </html>
-        """
+    html_body = f"""
+    <html>
+    <body>
+        <p>Hi there,</p>
+        <p>You are invited to the following Zoom meeting:</p>
+        <p><strong>📌 Topic:</strong> {subject.replace("📌 Zoom Meeting: ", "")}<br>
+        <strong>🕒 Time:</strong> {body_dict.get("time")}<br>
+        <strong>🔗 Join Zoom Meeting:</strong> <a href="{body_dict.get("link")}">{body_dict.get("link")}</a></p>
+        <p>Please join on time.</p>
+        <p>Regards,<br>Shikha</p>
+    </body>
+    </html>
+    """
 
-        msg = MIMEText(html_body, "html")  # ✅ Now it's a string
+    for email in recipients:
+        msg = MIMEText(html_body, "html")
         msg["to"] = email
         msg["from"] = "me"
         msg["subject"] = subject
         raw = base64.urlsafe_b64encode(msg.as_bytes()).decode()
-        message = {"raw": raw}
-        service.users().messages().send(userId="me", body=message).execute()
+        service.users().messages().send(userId="me", body={"raw": raw}).execute()
 
     return True
 
+# ---------- 🔗 Zoom ----------
 def get_zoom_access_token():
     auth_string = f"{ZOOM_CLIENT_ID}:{ZOOM_CLIENT_SECRET}"
     auth_base64 = base64.b64encode(auth_string.encode("utf-8")).decode("utf-8")
@@ -120,10 +156,7 @@ def get_zoom_access_token():
         "Authorization": f"Basic {auth_base64}",
         "Content-Type": "application/x-www-form-urlencoded"
     }
-    data = {
-        "grant_type": "account_credentials",
-        "account_id": ZOOM_ACCOUNT_ID
-    }
+    data = {"grant_type": "account_credentials", "account_id": ZOOM_ACCOUNT_ID}
     response = requests.post("https://zoom.us/oauth/token", headers=headers, data=data)
     return response.json().get("access_token")
 
