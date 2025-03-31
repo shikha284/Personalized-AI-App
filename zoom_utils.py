@@ -88,7 +88,22 @@ def send_email_reminder(subject, body, recipients):
     service = build("gmail", "v1", credentials=creds)
 
     for email in recipients:
-        msg = MIMEText(body, "html")  # ✅ HTML format
+        # ✅ Construct proper HTML from the dict
+        html_body = f"""
+        <html>
+        <body>
+            <p>Hi there,</p>
+            <p>You are invited to the following Zoom meeting:</p>
+            <p><strong>📌 Topic:</strong> {subject.replace("📌 Zoom Meeting: ", "")}<br>
+            <strong>🕒 Time:</strong> {body.get("time")}<br>
+            <strong>🔗 Join Zoom Meeting:</strong> <a href="{body.get("link")}">{body.get("link")}</a></p>
+            <p>Please join on time.</p>
+            <p>Regards,<br>Shikha</p>
+        </body>
+        </html>
+        """
+
+        msg = MIMEText(html_body, "html")  # ✅ Now it's a string
         msg["to"] = email
         msg["from"] = "me"
         msg["subject"] = subject
