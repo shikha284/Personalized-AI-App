@@ -2,6 +2,7 @@ import os
 import base64
 import pytz
 import pickle
+import requests  # ✅ Add this line
 import streamlit as st
 from datetime import datetime, timedelta
 from googleapiclient.discovery import build
