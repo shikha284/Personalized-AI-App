@@ -11,7 +11,7 @@ from zoom_utils import (
     add_to_calendar,
     send_email_reminder,
     authenticate_google,
-    summarize_latest_meetings
+    summarize_latest_meetings,  # ✅ Make sure this is here
 )
 
 st.set_page_config(page_title="Shikha's Personalized AI Assistant")

@@ -207,3 +207,29 @@ def analyze_sentiment(n=1):
         messages=[{"role": "user", "content": f"Analyze the sentiment of this meeting transcript:\n\n{full_text}"}]
     )
     return completion.choices[0].message.content
+
+def summarize_latest_meetings(num_meetings=1):
+    df = fetch_recent_meetings(n=num_meetings)
+    if df.empty:
+        return None, None
+
+    content = " ".join(df["content"].tolist())[:4000]
+
+    try:
+        summary_response = groq_client.chat.completions.create(
+            model="llama-3.3-70b-specdec",
+            messages=[{"role": "user", "content": f"Summarize this meeting transcript: {content}"}]
+        )
+        summary = summary_response.choices[0].message.content
+
+        sentiment_response = groq_client.chat.completions.create(
+            model="llama-3.3-70b-specdec",
+            messages=[{"role": "user", "content": f"Analyze the sentiment of this meeting transcript:\n\n{content}"}]
+        )
+        sentiment = sentiment_response.choices[0].message.content
+
+        return summary, sentiment
+
+    except Exception as e:
+        print("❌ Error in Groq summarization/sentiment:", e)
+        return None, None
