@@ -88,7 +88,7 @@ def send_email_reminder(subject, body, recipients):
     service = build("gmail", "v1", credentials=creds)
 
     for email in recipients:
-        msg = MIMEText(body)
+        msg = MIMEText(body, "html")  # ✅ HTML format
         msg["to"] = email
         msg["from"] = "me"
         msg["subject"] = subject

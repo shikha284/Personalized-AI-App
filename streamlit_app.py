@@ -1,4 +1,4 @@
-import requests  # ✅ Add this
+import requests
 import streamlit as st
 from datetime import datetime, timedelta
 from googleapiclient.discovery import build
@@ -12,20 +12,16 @@ from zoom_utils import (
 )
 
 st.set_page_config(page_title="Shikha's Personalized AI Assistant")
-
 st.title("🤖 Shikha's Personalized AI Assistant")
 
-# Step 0: Check and handle Google authorization
+# Step 0: Google Authorization
 if not st.session_state.get("google_authenticated"):
     st.subheader("🔐 Google Authorization Required")
-
-    # Try to authenticate silently if token exists
     silent_auth = authenticate_google(interactive=False)
     if silent_auth:
         st.session_state.google_authenticated = True
         st.rerun()
 
-    # If no token, show auth prompt
     if "auth_phase" not in st.session_state:
         auth_result = authenticate_google(interactive=True)
         if isinstance(auth_result, tuple):
@@ -37,7 +33,6 @@ if not st.session_state.get("google_authenticated"):
             st.error("⚠️ Unexpected authentication return type.")
             st.stop()
 
-    # Show the code input field
     if st.session_state.get("auth_phase") == "prompt_code":
         st.markdown(f"[Click here to authorize Google access]({st.session_state.auth_url})")
         auth_code = st.text_input("Paste the authorization code here:", key=st.session_state.code_key)
@@ -45,13 +40,12 @@ if not st.session_state.get("google_authenticated"):
             success = authenticate_google(interactive=True, auth_code=auth_code)
             if success:
                 st.session_state.google_authenticated = True
-                st.experimental_rerun()
+                st.rerun()
             else:
                 st.error("❌ Authorization failed. Please try again.")
-
     st.stop()
 
-# Step 1: Greet and accept instruction
+# Step 1: Greeting and Instruction
 if "step" not in st.session_state:
     st.session_state.step = "greet"
 
@@ -64,7 +58,7 @@ if st.session_state.step == "greet":
         else:
             st.warning("Sorry, I can currently only help with Zoom meeting scheduling.")
 
-# Step 2: Schedule meeting flow
+# Step 2: Meeting Scheduler
 if st.session_state.step == "collect_zoom_info":
     st.subheader("📅 Let's schedule your Zoom Meeting!")
 
@@ -84,14 +78,33 @@ if st.session_state.step == "collect_zoom_info":
 
             if zoom_link:
                 cal_link = add_to_calendar(topic, start_datetime, duration, timezone, zoom_link)
+
+                # 💌 Step 1.5: Formatted email body
+                email_body = f"""
+Hi there,
+
+You are invited to the following Zoom meeting:
+
+📌 **Topic:** {topic}  
+🕒 **Time:** {start_datetime.strftime('%Y-%m-%d %I:%M %p')} ({timezone})  
+🔗 **Join Zoom Meeting:** {zoom_link}
+
+Please join on time.
+
+Regards,  
+Shikha
+"""
+
                 email_sent = send_email_reminder(
                     subject=f"📌 Zoom Meeting: {topic}",
-                    body=f"Join Zoom Meeting: {zoom_link} at {start_datetime.strftime('%Y-%m-%d %H:%M')} ({timezone})",
+                    body=email_body,
                     recipients=[email.strip() for email in emails.split(",")]
                 )
+
                 st.success("✅ Zoom Meeting Scheduled Successfully!")
                 st.markdown(f"[🔗 Join Zoom Meeting]({zoom_link})")
                 st.markdown(f"[📅 View in Calendar]({cal_link})")
+
                 if email_sent:
                     st.success("📧 Email invitations sent via Gmail!")
                 else:
@@ -100,3 +113,4 @@ if st.session_state.step == "collect_zoom_info":
                 st.error(zoom_status)
 
             st.session_state.step = "greet"
+
