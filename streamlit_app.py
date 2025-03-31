@@ -4,11 +4,14 @@ from datetime import datetime, timedelta
 from googleapiclient.discovery import build
 from google_auth_oauthlib.flow import Flow
 from google.auth.transport.requests import Request
+from zoom_utils import summarize_meetings, transcripts  # ensure you imported this
+import pandas as pd
 from zoom_utils import (
     schedule_zoom_meeting,
     add_to_calendar,
     send_email_reminder,
-    authenticate_google
+    authenticate_google,
+    summarize_latest_meetings
 )
 
 st.set_page_config(page_title="Shikha's Personalized AI Assistant")
@@ -45,7 +48,7 @@ if not st.session_state.get("google_authenticated"):
                 st.error("❌ Authorization failed. Please try again.")
     st.stop()
 
-# Step 1: Greeting and Instruction
+# Step 1: Instruction Options
 if "step" not in st.session_state:
     st.session_state.step = "greet"
 
@@ -53,10 +56,13 @@ if st.session_state.step == "greet":
     st.write("Hi there! 👋 I'm your AI Assistant. What would you like me to do today?")
     user_input = st.text_input("Your instruction:")
     if user_input:
-        if "schedule" in user_input.lower() and "zoom" in user_input.lower():
+        user_input_lower = user_input.lower()
+        if "schedule" in user_input_lower and "zoom" in user_input_lower:
             st.session_state.step = "collect_zoom_info"
+        elif "summarize meeting" in user_input_lower:
+            st.session_state.step = "summarize_meeting"
         else:
-            st.warning("Sorry, I can currently only help with Zoom meeting scheduling.")
+            st.warning("Sorry, I can currently only help with Zoom scheduling and meeting summaries.")
 
 # Step 2: Meeting Scheduler
 if st.session_state.step == "collect_zoom_info":
@@ -79,13 +85,11 @@ if st.session_state.step == "collect_zoom_info":
             if zoom_link:
                 cal_link = add_to_calendar(topic, start_datetime, duration, timezone, zoom_link)
 
-                # 💌 Step 1.5: Formatted email body
-
                 email_sent = send_email_reminder(
                     subject=f"📌 Zoom Meeting: {topic}",
                     body={
-                    "time": f"{start_datetime.strftime('%Y-%m-%d %I:%M %p')} ({timezone})",
-                    "link": zoom_link
+                        "time": f"{start_datetime.strftime('%Y-%m-%d %I:%M %p')} ({timezone})",
+                        "link": zoom_link
                     },
                     recipients=[email.strip() for email in emails.split(",")]
                 )
@@ -103,3 +107,50 @@ if st.session_state.step == "collect_zoom_info":
 
             st.session_state.step = "greet"
 
+# Step 3: Meeting Summarization & Sentiment
+if st.session_state.step == "summarize_meeting":
+    st.subheader("📝 Summarize Recent Meeting")
+
+    num = st.number_input("Number of recent meetings to summarize", min_value=1, max_value=5, value=1)
+    if st.button("🔍 Summarize"):
+        summary, sentiment = summarize_latest_meetings(num_meetings=num)
+        if summary:
+            st.markdown("### ✅ Summary:")
+            st.info(summary)
+
+            st.markdown("### 📊 Sentiment:")
+            st.success(sentiment)
+        else:
+            st.warning("⚠️ No meeting data found or summary generation failed.")
+
+    st.button("🔙 Go Back", on_click=lambda: st.session_state.update({"step": "greet"}))
+
+# After meeting scheduling section
+st.header("📊 Meeting Insights Dashboard")
+
+# Filter options
+view_mode = st.radio("How do you want to explore meetings?", ["Latest", "By Title", "By Date"], horizontal=True)
+
+filtered_df = transcripts.copy()
+
+if view_mode == "By Title":
+    titles = filtered_df["title"].dropna().unique().tolist()
+    selected_title = st.selectbox("Select Meeting Title", titles)
+    filtered_df = filtered_df[filtered_df["title"] == selected_title]
+
+elif view_mode == "By Date":
+    selected_date = st.date_input("Select a date to filter meetings")
+    filtered_df = filtered_df[filtered_df["date"].dt.date == selected_date]
+
+# Number of meetings to summarize
+num_meetings = st.slider("How many meetings to summarize?", 1, 5, 1)
+
+if st.button("📄 Generate Meeting Summary"):
+    if filtered_df.empty:
+        st.warning("No meetings found for the selected filters.")
+    else:
+        summary = summarize_meetings(filtered_df, num_meetings=num_meetings)
+        st.markdown("### 📝 Summary")
+        st.markdown(summary)
+
+        # Optionally include sentiment later here too
