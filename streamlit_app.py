@@ -14,9 +14,15 @@ st.title("🤖 Shikha's Personalized AI Assistant")
 # Step 0: Check and handle Google authorization
 if not st.session_state.get("google_authenticated"):
     st.subheader("🔐 Google Authorization Required")
-    auth_url, code_key = authenticate_google(interactive=True)
-    st.markdown(f"[Click here to authorize Google access]({auth_url})")
-    auth_code = st.text_input("Paste the authorization code here:", key=code_key)
+
+    # Check if this is the first time — show auth URL and input
+    if "auth_url" not in st.session_state:
+        auth_url, code_key = authenticate_google(interactive=True)
+        st.session_state.auth_url = auth_url
+        st.session_state.code_key = code_key
+
+    st.markdown(f"[Click here to authorize Google access]({st.session_state.auth_url})")
+    auth_code = st.text_input("Paste the authorization code here:", key=st.session_state.code_key)
 
     if auth_code:
         success = authenticate_google(interactive=True, auth_code=auth_code)
@@ -25,6 +31,7 @@ if not st.session_state.get("google_authenticated"):
             st.rerun()
         else:
             st.error("❌ Authorization failed. Please try again.")
+
     st.stop()
 
 # Step 1: Greet and accept instruction
