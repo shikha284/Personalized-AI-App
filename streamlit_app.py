@@ -15,22 +15,35 @@ st.title("🤖 Shikha's Personalized AI Assistant")
 if not st.session_state.get("google_authenticated"):
     st.subheader("🔐 Google Authorization Required")
 
-    # Check if this is the first time — show auth URL and input
-    if "auth_url" not in st.session_state:
-        auth_url, code_key = authenticate_google(interactive=True)
-        st.session_state.auth_url = auth_url
-        st.session_state.code_key = code_key
+    # Try to authenticate silently if token exists
+    silent_auth = authenticate_google(interactive=False)
+    if silent_auth:
+        st.session_state.google_authenticated = True
+        st.experimental_rerun()
 
-    st.markdown(f"[Click here to authorize Google access]({st.session_state.auth_url})")
-    auth_code = st.text_input("Paste the authorization code here:", key=st.session_state.code_key)
-
-    if auth_code:
-        success = authenticate_google(interactive=True, auth_code=auth_code)
-        if success:
-            st.session_state.google_authenticated = True
-            st.rerun()
+    # If no token, show auth prompt
+    if "auth_phase" not in st.session_state:
+        auth_result = authenticate_google(interactive=True)
+        if isinstance(auth_result, tuple):
+            auth_url, code_key = auth_result
+            st.session_state.auth_url = auth_url
+            st.session_state.code_key = code_key
+            st.session_state.auth_phase = "prompt_code"
         else:
-            st.error("❌ Authorization failed. Please try again.")
+            st.error("⚠️ Unexpected authentication return type.")
+            st.stop()
+
+    # Show the code input field
+    if st.session_state.get("auth_phase") == "prompt_code":
+        st.markdown(f"[Click here to authorize Google access]({st.session_state.auth_url})")
+        auth_code = st.text_input("Paste the authorization code here:", key=st.session_state.code_key)
+        if auth_code:
+            success = authenticate_google(interactive=True, auth_code=auth_code)
+            if success:
+                st.session_state.google_authenticated = True
+                st.experimental_rerun()
+            else:
+                st.error("❌ Authorization failed. Please try again.")
 
     st.stop()
 
