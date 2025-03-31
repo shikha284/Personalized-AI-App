@@ -19,7 +19,7 @@ if not st.session_state.get("google_authenticated"):
     silent_auth = authenticate_google(interactive=False)
     if silent_auth:
         st.session_state.google_authenticated = True
-        st.experimental_rerun()
+        st.rerun()
 
     # If no token, show auth prompt
     if "auth_phase" not in st.session_state:
