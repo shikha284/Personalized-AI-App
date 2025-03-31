@@ -80,24 +80,13 @@ if st.session_state.step == "collect_zoom_info":
                 cal_link = add_to_calendar(topic, start_datetime, duration, timezone, zoom_link)
 
                 # 💌 Step 1.5: Formatted email body
-                email_body = f"""
-Hi there,
-
-You are invited to the following Zoom meeting:
-
-📌 **Topic:** {topic}  
-🕒 **Time:** {start_datetime.strftime('%Y-%m-%d %I:%M %p')} ({timezone})  
-🔗 **Join Zoom Meeting:** {zoom_link}
-
-Please join on time.
-
-Regards,  
-Shikha
-"""
 
                 email_sent = send_email_reminder(
                     subject=f"📌 Zoom Meeting: {topic}",
-                    body=email_body,
+                    body={
+                    "time": f"{start_datetime.strftime('%Y-%m-%d %I:%M %p')} ({timezone})",
+                    "link": zoom_link
+                    },
                     recipients=[email.strip() for email in emails.split(",")]
                 )
 
