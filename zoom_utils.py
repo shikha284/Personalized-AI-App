@@ -189,19 +189,25 @@ def summarize_meetings(df, num_meetings=1):
     )
     return response.choices[0].message.content
 
-def summarize_latest_meetings(num_meetings=1):
-    df = fetch_recent_meetings(num_meetings)
-    if df.empty:
-        return None, None
-    text = " ".join(df["content"].tolist())[:4000]
+def summarize_latest_meetings(num_meetings=1, content_override=None):
+    if content_override:
+        text = content_override[:4000]
+    else:
+        df = fetch_recent_meetings(num_meetings)
+        if df.empty:
+            return None, None
+        text = " ".join(df["content"].tolist())[:4000]
+
     summary = groq_client.chat.completions.create(
         model="llama-3.3-70b-specdec",
         messages=[{"role": "user", "content": f"Summarize this meeting transcript: {text}"}]
     ).choices[0].message.content
+
     sentiment = groq_client.chat.completions.create(
         model="llama-3.3-70b-specdec",
-        messages=[{"role": "user", "content": f"Analyze sentiment of the meeting: {text}"}]
+        messages=[{"role": "user", "content": f"Analyze the sentiment of this meeting transcript:\n\n{text}"}]
     ).choices[0].message.content
+
     return summary, sentiment
 
 # Exported variable for other scripts
