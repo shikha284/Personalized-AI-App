@@ -112,4 +112,3 @@ if st.session_state.step == "summarize_meeting":
 
     if st.button("🔙 Go Back"):
         st.session_state.step = "greet"
-
