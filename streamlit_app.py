@@ -96,15 +96,10 @@ if st.session_state.step == "collect_zoom_info":
 if st.session_state.step == "summarize_meeting":
     st.subheader("📑 Summarize & Analyze Meetings")
 
-    view_mode = st.radio("Filter by", ["Latest", "By Title", "By Date"], horizontal=True)
+    view_mode = st.radio("Filter by", ["Latest", "By Date"], horizontal=True)
     filtered_df = transcripts.copy()
 
-    if view_mode == "By Title":
-        titles = filtered_df["title"].dropna().unique().tolist()
-        selected_title = st.selectbox("Select Title", titles)
-        filtered_df = filtered_df[filtered_df["title"] == selected_title]
-
-    elif view_mode == "By Date":
+    if view_mode == "By Date":
         selected_date = st.date_input("Pick a Date")
         filtered_df = filtered_df[filtered_df["created_at"].dt.date == selected_date]
 
@@ -122,7 +117,10 @@ if st.session_state.step == "summarize_meeting":
             st.markdown("### ✅ Summary")
             st.info(summary)
             st.markdown("### 💬 Sentiment")
-            st.success(sentiment if sentiment else "No sentiment returned.")
+            if sentiment.lower().startswith("⚠️"):
+                st.warning(sentiment)
+            else:
+                st.success(sentiment)
 
     if st.button("🔙 Go Back"):
         st.session_state.step = "greet"

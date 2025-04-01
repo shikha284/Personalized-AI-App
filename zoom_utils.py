@@ -190,25 +190,32 @@ def summarize_meetings(df, num_meetings=1):
     return response.choices[0].message.content
 
 def summarize_latest_meetings(num_meetings=1, content_override=None):
-    if content_override:
-        text = content_override[:4000]
-    else:
-        df = fetch_recent_meetings(num_meetings)
-        if df.empty:
-            return None, None
-        text = " ".join(df["content"].tolist())[:4000]
+    try:
+        if content_override:
+            text = content_override[:4000]
+        else:
+            df = fetch_recent_meetings(num_meetings)
+            if df.empty:
+                return "⚠️ No transcript data.", "⚠️ No sentiment available."
+            text = " ".join(df["content"].tolist())[:4000]
 
-    summary = groq_client.chat.completions.create(
-        model="llama-3.3-70b-specdec",
-        messages=[{"role": "user", "content": f"Summarize this meeting transcript: {text}"}]
-    ).choices[0].message.content
+        summary_response = groq_client.chat.completions.create(
+            model="llama-3.3-70b-specdec",
+            messages=[{"role": "user", "content": f"Summarize this meeting transcript: {text}"}]
+        )
+        summary = summary_response.choices[0].message.content.strip()
 
-    sentiment = groq_client.chat.completions.create(
-        model="llama-3.3-70b-specdec",
-        messages=[{"role": "user", "content": f"Analyze the sentiment of this meeting transcript:\n\n{text}"}]
-    ).choices[0].message.content
+        sentiment_response = groq_client.chat.completions.create(
+            model="llama-3.3-70b-specdec",
+            messages=[{"role": "user", "content": f"Analyze the sentiment of this meeting transcript:\n\n{text}"}]
+        )
+        sentiment = sentiment_response.choices[0].message.content.strip()
 
-    return summary, sentiment
+        return summary or "⚠️ No summary returned.", sentiment or "⚠️ No sentiment returned."
+
+    except Exception as e:
+        print("❌ Error in summarization/sentiment:", e)
+        return "⚠️ Summary failed.", "⚠️ Sentiment failed."
 
 # Exported variable for other scripts
 transcripts = fetch_transcripts()
