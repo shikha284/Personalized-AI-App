@@ -43,7 +43,7 @@ if not st.session_state.get("google_authenticated"):
                 st.error("❌ Authorization failed. Try again.")
     st.stop()
 
-# 🧠 Intent Navigation
+# Navigation
 if "step" not in st.session_state:
     st.session_state.step = "greet"
 
@@ -59,7 +59,7 @@ if st.session_state.step == "greet":
         else:
             st.warning("Try: 'schedule zoom meeting' or 'summarize recent meeting'.")
 
-# 📅 Zoom Scheduling
+# Zoom Scheduling
 if st.session_state.step == "collect_zoom_info":
     st.subheader("📅 Schedule Zoom Meeting")
     topic = st.text_input("Meeting Topic")
@@ -90,7 +90,7 @@ if st.session_state.step == "collect_zoom_info":
         else:
             st.error("Please complete all fields.")
 
-# 📑 Summarize & Sentiment
+# Meeting Summary & Sentiment
 if st.session_state.step == "summarize_meeting":
     st.subheader("📑 Summarize & Analyze Meetings")
     view_mode = st.radio("Filter by", ["Latest", "By Date"], horizontal=True)
@@ -100,39 +100,15 @@ if st.session_state.step == "summarize_meeting":
         selected_date = st.date_input("Pick a Date")
         filtered_df = filtered_df[filtered_df["created_at"].dt.date == selected_date]
 
-    if st.button("🧾 Generate Summary & Sentiment"):
+    if st.button("📄 Generate Summary & Sentiment"):
         if filtered_df.empty:
             st.warning("⚠️ No transcripts found for this filter.")
         else:
-            summary = summarize_meetings(filtered_df)
-            _, sentiment_raw = summarize_latest_meeting()
-
-            # 🎭 Map sentiment to emoji
-            sentiment_emoji = "😐 Neutral"
-            if sentiment_raw:
-                sentiment_lower = sentiment_raw.lower()
-                if "positive" in sentiment_lower:
-                    sentiment_emoji = "😀 Positive"
-                elif "negative" in sentiment_lower:
-                    sentiment_emoji = "😟 Negative"
-
+            summary, sentiment = summarize_meetings(filtered_df)
             st.markdown("### ✅ Summary")
-            st.info(summary)
-
+            st.info(summary or "No summary generated.")
             st.markdown("### 💬 Sentiment")
-            st.success(sentiment_emoji)
-
-            # 📄 Download as Text
-            st.download_button("⬇️ Download as Text", summary, file_name="meeting_summary.txt")
-
-            # 📄 Download as PDF
-            from fpdf import FPDF
-            pdf = FPDF()
-            pdf.add_page()
-            pdf.set_font("Arial", size=12)
-            pdf.multi_cell(0, 10, summary)
-            pdf_bytes = pdf.output(dest='S').encode('latin1')
-            st.download_button("📄 Download as PDF", data=pdf_bytes, file_name="meeting_summary.pdf")
+            st.success(sentiment or "No sentiment detected.")
 
     if st.button("🔙 Go Back"):
         st.session_state.step = "greet"
