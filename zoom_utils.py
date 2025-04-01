@@ -41,7 +41,7 @@ CLIENT_CONFIG = {
         "token_uri": "https://oauth2.googleapis.com/token"
     }
 }
-
+# --- GOOGLE AUTH ---
 def authenticate_google(interactive=False, auth_code=None):
     if os.path.exists("token.pkl"):
         with open("token.pkl", "rb") as token:
@@ -78,6 +78,26 @@ def authenticate_google(interactive=False, auth_code=None):
             return False
     return None
 
+# --- GOOGLE CALENDAR ---
+def add_to_calendar(topic, start_time, duration, time_zone, zoom_link):
+    creds = authenticate_google()
+    if not creds:
+        return "❌ Google authentication failed"
+
+    service = build("calendar", "v3", credentials=creds)
+    end_time = start_time + timedelta(minutes=duration)
+    event = {
+        "summary": topic,
+        "location": "Zoom",
+        "description": f"Join Zoom Meeting: {zoom_link}",
+        "start": {"dateTime": start_time.isoformat(), "timeZone": time_zone},
+        "end": {"dateTime": end_time.isoformat(), "timeZone": time_zone},
+        "reminders": {"useDefault": True}
+    }
+    created_event = service.events().insert(calendarId="primary", body=event).execute()
+    return created_event.get("htmlLink")
+
+# --- EMAIL ---
 def send_email_reminder(subject, body, recipients):
     creds = authenticate_google()
     if not creds:
@@ -98,7 +118,6 @@ def send_email_reminder(subject, body, recipients):
         </body>
         </html>
         """
-
         msg = MIMEText(html_body, "html")
         msg["to"] = email
         msg["from"] = "me"
@@ -108,6 +127,7 @@ def send_email_reminder(subject, body, recipients):
         service.users().messages().send(userId="me", body=message).execute()
     return True
 
+# --- ZOOM ---
 def get_zoom_access_token():
     auth_string = f"{ZOOM_CLIENT_ID}:{ZOOM_CLIENT_SECRET}"
     auth_base64 = base64.b64encode(auth_string.encode("utf-8")).decode("utf-8")
@@ -155,7 +175,7 @@ def schedule_zoom_meeting(topic, start_time, duration, time_zone):
     else:
         return None, f"❌ Zoom scheduling failed: {res.json()}"
 
-# ✅ Meeting Summary & Sentiment
+# --- DATABASE & ANALYSIS ---
 def connect_to_db():
     try:
         conn = psycopg2.connect(**DB_CONFIG)
@@ -176,7 +196,7 @@ def fetch_recent_meetings(n=1):
 @st.cache_data
 def fetch_transcripts():
     try:
-        conn = psycopg2.connect(**DB_CONFIG)
+        conn = connect_to_db()
         df = pd.read_sql("SELECT * FROM embeddings_shikha_20250324 WHERE category <> 'chats';", conn)
         df["date"] = pd.to_datetime(df["date"], errors="coerce")
         return df
@@ -190,7 +210,7 @@ def summarize_meetings(df, num_meetings=1):
     latest = df.sort_values(by="date", ascending=False).head(num_meetings)
     content = " ".join(latest["content"].tolist())[:4000]
 
-    response = client.chat.completions.create(
+    response = groq_client.chat.completions.create(
         model="llama-3.3-70b-specdec",
         messages=[{"role": "user", "content": f"Summarize this meeting transcript: {content}"}]
     )
@@ -200,7 +220,6 @@ def analyze_sentiment(n=1):
     df = fetch_recent_meetings(n)
     if df.empty:
         return "⚠️ No meeting transcript available for sentiment."
-
     full_text = " ".join(df['content'].tolist())[:4000]
     completion = groq_client.chat.completions.create(
         model="llama-3.3-70b-specdec",

@@ -1,14 +1,14 @@
 import requests
 import streamlit as st
-from datetime import datetime, timedelta
+from datetime import datetime
 from zoom_utils import (
     schedule_zoom_meeting,
-    add_to_calendar,
     send_email_reminder,
     authenticate_google,
     summarize_meetings,
     summarize_latest_meetings,
-    transcripts
+    transcripts,
+    add_to_calendar  # ✅ Now present in zoom_utils.py
 )
 
 st.set_page_config(page_title="Shikha's Personalized AI Assistant")
@@ -137,3 +137,26 @@ if st.session_state.step == "summarize_meeting":
 
     if st.button("🔙 Go Back"):
         st.session_state.step = "greet"
+🔧 Reminder
+Make sure your zoom_utils.py has this function defined:
+
+python
+Copy
+Edit
+def add_to_calendar(topic, start_time, duration, time_zone, zoom_link):
+    creds = authenticate_google()
+    if not creds:
+        return "❌ Google authentication failed"
+
+    service = build("calendar", "v3", credentials=creds)
+    end_time = start_time + timedelta(minutes=duration)
+    event = {
+        "summary": topic,
+        "location": "Zoom",
+        "description": f"Join Zoom Meeting: {zoom_link}",
+        "start": {"dateTime": start_time.isoformat(), "timeZone": time_zone},
+        "end": {"dateTime": end_time.isoformat(), "timeZone": time_zone},
+        "reminders": {"useDefault": True}
+    }
+    created_event = service.events().insert(calendarId="primary", body=event).execute()
+    return created_event.get("htmlLink")
