@@ -1,4 +1,5 @@
 import streamlit as st
+from gmail_utils import fetch_latest_email, summarize_email, draft_reply
 from datetime import datetime
 from zoom_utils import (
     schedule_zoom_meeting,
@@ -112,9 +113,6 @@ if st.session_state.step == "summarize_meeting":
 
     if st.button("🔙 Go Back"):
         st.session_state.step = "greet"
-
-import streamlit as st
-from gmail_utils import fetch_latest_email, summarize_email, draft_reply
 
 st.set_page_config(page_title="📧 Gmail Assistant", page_icon="📬")
 st.title("📬 Gmail AI Assistant")
