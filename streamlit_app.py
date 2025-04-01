@@ -100,15 +100,40 @@ if st.session_state.step == "summarize_meeting":
         selected_date = st.date_input("Pick a Date")
         filtered_df = filtered_df[filtered_df["created_at"].dt.date == selected_date]
 
-    if st.button("📄 Generate Summary & Sentiment"):
+    if st.button("🧾 Generate Summary & Sentiment"):
         if filtered_df.empty:
             st.warning("⚠️ No transcripts found for this filter.")
         else:
-            summary, sentiment = summarize_meetings(filtered_df)
+            summary = summarize_meetings(filtered_df)
+            _, sentiment_raw = summarize_latest_meetings()
+            
+            # 🎭 Map sentiment to emoji
+            sentiment_emoji = "😐"
+            if sentiment_raw:
+                sentiment_lower = sentiment_raw.lower()
+                if "positive" in sentiment_lower:
+                    sentiment_emoji = "😀 Positive"
+                elif "negative" in sentiment_lower:
+                    sentiment_emoji = "😟 Negative"
+                else:
+                    sentiment_emoji = "😐 Neutral"
+
             st.markdown("### ✅ Summary")
-            st.info(summary or "No summary generated.")
+            st.info(summary)
+
             st.markdown("### 💬 Sentiment")
-            st.success(sentiment or "No sentiment detected.")
+            st.success(sentiment_emoji)
+
+            # 📄 Download options
+            st.download_button("⬇️ Download as Text", summary, file_name="meeting_summary.txt")
+            from fpdf import FPDF
+            pdf = FPDF()
+            pdf.add_page()
+            pdf.set_font("Arial", size=12)
+            pdf.multi_cell(0, 10, summary)
+            pdf_bytes = pdf.output(dest='S').encode('latin1')
+            st.download_button("📄 Download as PDF", data=pdf_bytes, file_name="meeting_summary.pdf")
+
 
     if st.button("🔙 Go Back"):
         st.session_state.step = "greet"
