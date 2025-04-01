@@ -8,7 +8,7 @@ from zoom_utils import (
     summarize_meetings,
     summarize_latest_meetings,
     transcripts,
-    add_to_calendar  # ✅ Now present in zoom_utils.py
+    add_to_calendar
 )
 
 st.set_page_config(page_title="Shikha's Personalized AI Assistant")
@@ -45,7 +45,7 @@ if not st.session_state.get("google_authenticated"):
                 st.error("❌ Authorization failed. Please try again.")
     st.stop()
 
-# 🧠 Greet
+# 🧠 Intent-Based Navigation
 if "step" not in st.session_state:
     st.session_state.step = "greet"
 
@@ -53,10 +53,10 @@ if st.session_state.step == "greet":
     st.write("Hi there! 👋 I'm your AI Assistant. What would you like me to do today?")
     user_input = st.text_input("Your instruction:")
     if user_input:
-        user_input_lower = user_input.lower()
-        if "schedule" in user_input_lower and "zoom" in user_input_lower:
+        normalized_input = user_input.strip().lower()
+        if "schedule" in normalized_input and "zoom" in normalized_input:
             st.session_state.step = "collect_zoom_info"
-        elif "summarize meeting" in user_input_lower or "insight" in user_input_lower:
+        elif any(keyword in normalized_input for keyword in ["summarize meeting", "summarize recent", "meeting summary", "meeting insights", "summarize"]):
             st.session_state.step = "summarize_meeting"
         else:
             st.warning("Try saying 'schedule zoom meeting' or 'summarize recent meeting'.")
@@ -118,7 +118,7 @@ if st.session_state.step == "summarize_meeting":
 
     elif view_mode == "By Date":
         selected_date = st.date_input("Pick a Date")
-        filtered_df = filtered_df[filtered_df["date"].dt.date == selected_date]
+        filtered_df = filtered_df[filtered_df["created_at"].dt.date == selected_date]
 
     num_meetings = st.slider("Meetings to summarize", 1, 5, 1)
 
