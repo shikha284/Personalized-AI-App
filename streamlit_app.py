@@ -112,3 +112,36 @@ if st.session_state.step == "summarize_meeting":
 
     if st.button("🔙 Go Back"):
         st.session_state.step = "greet"
+
+import streamlit as st
+from gmail_utils import fetch_latest_email, summarize_email, draft_reply
+
+st.set_page_config(page_title="📧 Gmail Assistant", page_icon="📬")
+st.title("📬 Gmail AI Assistant")
+
+option = st.selectbox("Choose Action", ["Summarize Latest Email", "Draft Reply to Latest Email"])
+
+email = fetch_latest_email()
+
+if not email:
+    st.error("No email found or Gmail not authorized.")
+    st.stop()
+
+st.markdown(f"### 📩 Latest Email from: {email['sender']}")
+st.markdown(f"**Subject**: {email['subject']}")
+st.markdown(f"**Date**: {email['date']}")
+st.markdown("**Content**:")
+st.code(email['body'][:1000])
+
+if option == "Summarize Latest Email":
+    if st.button("🧠 Summarize Email"):
+        summary = summarize_email(email['body'])
+        st.subheader("📋 Summary")
+        st.success(summary)
+
+elif option == "Draft Reply to Latest Email":
+    user_message = st.text_area("What do you want to say?")
+    if st.button("✍️ Draft Reply"):
+        reply = draft_reply(email, user_message)
+        st.subheader("💬 Suggested Reply")
+        st.info(reply)
