@@ -1,9 +1,6 @@
-import os
-import base64
-import pickle
-import pytz
-import requests
-import psycopg2
+# zoom_utils.py
+
+import os, base64, pickle, pytz, requests, psycopg2
 import pandas as pd
 from datetime import datetime, timedelta
 from email.mime.text import MIMEText
@@ -13,16 +10,13 @@ from google.auth.transport.requests import Request
 from groq import Groq
 import streamlit as st
 
-# Zoom credentials
+# --- Credentials & Config ---
 ZOOM_CLIENT_ID = st.secrets["zoom"]["client_id"]
 ZOOM_CLIENT_SECRET = st.secrets["zoom"]["client_secret"]
 ZOOM_ACCOUNT_ID = st.secrets["zoom"]["account_id"]
-
-# Groq
 GROQ_API_KEY = st.secrets["groq"]["api_key"]
 groq_client = Groq(api_key=GROQ_API_KEY)
 
-# DB Config
 DB_CONFIG = {
     "host": "vijayrag.c9uac2i2ihy2.us-east-1.rds.amazonaws.com",
     "port": 5432,
@@ -31,7 +25,6 @@ DB_CONFIG = {
     "database": "mydatabase"
 }
 
-# Google OAuth2 configuration
 CLIENT_CONFIG = {
     "web": {
         "client_id": st.secrets["gmail_oauth"]["client_id"],
@@ -41,7 +34,8 @@ CLIENT_CONFIG = {
         "token_uri": "https://oauth2.googleapis.com/token"
     }
 }
-# --- GOOGLE AUTH ---
+
+# --- Auth ---
 def authenticate_google(interactive=False, auth_code=None):
     if os.path.exists("token.pkl"):
         with open("token.pkl", "rb") as token:
@@ -78,7 +72,7 @@ def authenticate_google(interactive=False, auth_code=None):
             return False
     return None
 
-# --- GOOGLE CALENDAR ---
+# --- Calendar Integration ---
 def add_to_calendar(topic, start_time, duration, time_zone, zoom_link):
     creds = authenticate_google()
     if not creds:
@@ -97,7 +91,7 @@ def add_to_calendar(topic, start_time, duration, time_zone, zoom_link):
     created_event = service.events().insert(calendarId="primary", body=event).execute()
     return created_event.get("htmlLink")
 
-# --- EMAIL ---
+# --- Gmail Sender ---
 def send_email_reminder(subject, body, recipients):
     creds = authenticate_google()
     if not creds:
@@ -106,17 +100,14 @@ def send_email_reminder(subject, body, recipients):
     service = build("gmail", "v1", credentials=creds)
     for email in recipients:
         html_body = f"""
-        <html>
-        <body>
-            <p>Hi there,</p>
-            <p>You are invited to the following Zoom meeting:</p>
-            <p><strong>📌 Topic:</strong> {subject.replace("📌 Zoom Meeting: ", "")}<br>
-            <strong>🕒 Time:</strong> {body.get("time")}<br>
-            <strong>🔗 Join Zoom Meeting:</strong> <a href="{body.get("link")}">{body.get("link")}</a></p>
-            <p>Please join on time.</p>
-            <p>Regards,<br>Shikha</p>
-        </body>
-        </html>
+        <html><body>
+        <p>Hi there,</p>
+        <p>You are invited to the following Zoom meeting:</p>
+        <p><strong>📌 Topic:</strong> {subject.replace("📌 Zoom Meeting: ", "")}<br>
+        <strong>🕒 Time:</strong> {body.get("time")}<br>
+        <strong>🔗 Join Zoom Meeting:</strong> <a href="{body.get("link")}">{body.get("link")}</a></p>
+        <p>Please join on time.</p>
+        <p>Regards,<br>Shikha</p></body></html>
         """
         msg = MIMEText(html_body, "html")
         msg["to"] = email
@@ -127,7 +118,7 @@ def send_email_reminder(subject, body, recipients):
         service.users().messages().send(userId="me", body=message).execute()
     return True
 
-# --- ZOOM ---
+# --- Zoom Scheduling ---
 def get_zoom_access_token():
     auth_string = f"{ZOOM_CLIENT_ID}:{ZOOM_CLIENT_SECRET}"
     auth_base64 = base64.b64encode(auth_string.encode("utf-8")).decode("utf-8")
@@ -135,10 +126,7 @@ def get_zoom_access_token():
         "Authorization": f"Basic {auth_base64}",
         "Content-Type": "application/x-www-form-urlencoded"
     }
-    data = {
-        "grant_type": "account_credentials",
-        "account_id": ZOOM_ACCOUNT_ID
-    }
+    data = {"grant_type": "account_credentials", "account_id": ZOOM_ACCOUNT_ID}
     response = requests.post("https://zoom.us/oauth/token", headers=headers, data=data)
     return response.json().get("access_token")
 
@@ -153,7 +141,6 @@ def schedule_zoom_meeting(topic, start_time, duration, time_zone):
     }
     tz = pytz.timezone(time_zone)
     zoom_time = tz.localize(start_time).astimezone(pytz.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
-
     meeting_data = {
         "topic": topic,
         "type": 2,
@@ -170,85 +157,52 @@ def schedule_zoom_meeting(topic, start_time, duration, time_zone):
     }
 
     res = requests.post("https://api.zoom.us/v2/users/me/meetings", headers=headers, json=meeting_data)
-    if res.status_code == 201:
-        return res.json().get("join_url"), "✅ Zoom meeting scheduled!"
-    else:
-        return None, f"❌ Zoom scheduling failed: {res.json()}"
+    return (res.json().get("join_url"), "✅ Zoom meeting scheduled!") if res.status_code == 201 else (None, f"❌ Zoom scheduling failed: {res.json()}")
 
-# --- DATABASE & ANALYSIS ---
+# --- DB + Analysis ---
 def connect_to_db():
     try:
-        conn = psycopg2.connect(**DB_CONFIG)
-        return conn
+        return psycopg2.connect(**DB_CONFIG)
     except Exception as e:
-        print(f"❌ DB Connection Error: {e}")
+        print("❌ DB Error:", e)
         return None
-
-def fetch_recent_meetings(n=1):
-    conn = connect_to_db()
-    if not conn:
-        return pd.DataFrame()
-    df = pd.read_sql("SELECT * FROM meeting_embeddings_shikha_20250401_new_6 WHERE category='meeting';", conn)
-    df['created_at'] = pd.to_datetime(df['created_at'], errors='coerce')
-    conn.close()
-    return df.sort_values(by='created_at', ascending=False).head(n)
 
 @st.cache_data
 def fetch_transcripts():
-    try:
-        conn = connect_to_db()
-        df = pd.read_sql("SELECT * FROM meeting_embeddings_shikha_20250401_new_6 WHERE category <> 'chats';", conn)
-        df["created_at"] = pd.to_datetime(df["created_at"], errors="coerce")
-        return df
-    except Exception as e:
-        st.error(f"❌ Failed to fetch meeting transcripts: {e}")
+    conn = connect_to_db()
+    if not conn:
         return pd.DataFrame()
+    df = pd.read_sql("SELECT * FROM meeting_embeddings_shikha_20250401_new_6 WHERE category <> 'chats';", conn)
+    df["created_at"] = pd.to_datetime(df["created_at"], errors="coerce")
+    return df
 
-transcripts = fetch_transcripts()
+def fetch_recent_meetings(n=1):
+    df = fetch_transcripts()
+    return df.sort_values(by="created_at", ascending=False).head(n)
 
 def summarize_meetings(df, num_meetings=1):
     latest = df.sort_values(by="created_at", ascending=False).head(num_meetings)
-    content = " ".join(latest["content"].tolist())[:4000]
-
+    text = " ".join(latest["content"].tolist())[:4000]
     response = groq_client.chat.completions.create(
         model="llama-3.3-70b-specdec",
-        messages=[{"role": "user", "content": f"Summarize this meeting transcript: {content}"}]
+        messages=[{"role": "user", "content": f"Summarize this meeting transcript: {text}"}]
     )
     return response.choices[0].message.content
 
-def analyze_sentiment(n=1):
-    df = fetch_recent_meetings(n)
-    if df.empty:
-        return "⚠️ No meeting transcript available for sentiment."
-    full_text = " ".join(df['content'].tolist())[:4000]
-    completion = groq_client.chat.completions.create(
-        model="llama-3.3-70b-specdec",
-        messages=[{"role": "user", "content": f"Analyze the sentiment of this meeting transcript:\n\n{full_text}"}]
-    )
-    return completion.choices[0].message.content
-
 def summarize_latest_meetings(num_meetings=1):
-    df = fetch_recent_meetings(n=num_meetings)
+    df = fetch_recent_meetings(num_meetings)
     if df.empty:
         return None, None
+    text = " ".join(df["content"].tolist())[:4000]
+    summary = groq_client.chat.completions.create(
+        model="llama-3.3-70b-specdec",
+        messages=[{"role": "user", "content": f"Summarize this meeting transcript: {text}"}]
+    ).choices[0].message.content
+    sentiment = groq_client.chat.completions.create(
+        model="llama-3.3-70b-specdec",
+        messages=[{"role": "user", "content": f"Analyze sentiment of the meeting: {text}"}]
+    ).choices[0].message.content
+    return summary, sentiment
 
-    content = " ".join(df["content"].tolist())[:4000]
-
-    try:
-        summary_response = groq_client.chat.completions.create(
-            model="llama-3.3-70b-specdec",
-            messages=[{"role": "user", "content": f"Summarize this meeting transcript: {content}"}]
-        )
-        summary = summary_response.choices[0].message.content
-
-        sentiment_response = groq_client.chat.completions.create(
-            model="llama-3.3-70b-specdec",
-            messages=[{"role": "user", "content": f"Analyze the sentiment of this meeting transcript:\n\n{content}"}]
-        )
-        sentiment = sentiment_response.choices[0].message.content
-
-        return summary, sentiment
-
-    except Exception as e:
-        print("❌ Error in Groq summarization/sentiment:", e)
-        return None, None
+# Exported variable for other scripts
+transcripts = fetch_transcripts()
