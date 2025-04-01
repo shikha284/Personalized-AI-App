@@ -180,42 +180,33 @@ def fetch_recent_meetings(n=1):
     df = fetch_transcripts()
     return df.sort_values(by="created_at", ascending=False).head(n)
 
-def summarize_meetings(df, num_meetings=1):
-    latest = df.sort_values(by="created_at", ascending=False).head(num_meetings)
-    text = " ".join(latest["content"].tolist())[:4000]
-    response = groq_client.chat.completions.create(
-        model="llama-3.3-70b-specdec",
-        messages=[{"role": "user", "content": f"Summarize this meeting transcript: {text}"}]
-    )
-    return response.choices[0].message.content
+def summarize_meetings(df):
+    if df.empty:
+        return "⚠️ No transcript data to summarize.", None
 
-def summarize_latest_meetings(num_meetings=1, content_override=None):
+    content = " ".join(df.sort_values(by="created_at", ascending=False)["content"].tolist())[:4000]
     try:
-        if content_override:
-            text = content_override[:4000]
-        else:
-            df = fetch_recent_meetings(num_meetings)
-            if df.empty:
-                return "⚠️ No transcript data.", "⚠️ No sentiment available."
-            text = " ".join(df["content"].tolist())[:4000]
-
-        summary_response = groq_client.chat.completions.create(
+        summary = groq_client.chat.completions.create(
             model="llama-3.3-70b-specdec",
-            messages=[{"role": "user", "content": f"Summarize this meeting transcript: {text}"}]
-        )
-        summary = summary_response.choices[0].message.content.strip()
+            messages=[{"role": "user", "content": f"Summarize this meeting transcript: {content}"}]
+        ).choices[0].message.content
 
-        sentiment_response = groq_client.chat.completions.create(
+        sentiment = groq_client.chat.completions.create(
             model="llama-3.3-70b-specdec",
-            messages=[{"role": "user", "content": f"Analyze the sentiment of this meeting transcript:\n\n{text}"}]
-        )
-        sentiment = sentiment_response.choices[0].message.content.strip()
+            messages=[{"role": "user", "content": f"Analyze the sentiment of this meeting transcript:\n\n{content}"}]
+        ).choices[0].message.content
 
-        return summary or "⚠️ No summary returned.", sentiment or "⚠️ No sentiment returned."
+        return summary.strip(), sentiment.strip()
 
     except Exception as e:
-        print("❌ Error in summarization/sentiment:", e)
-        return "⚠️ Summary failed.", "⚠️ Sentiment failed."
+        print("❌ Error in summarizing/sentiment:", e)
+        return "❌ Failed to generate summary.", "❌ Failed to analyze sentiment."
+
+def summarize_latest_meeting():
+    df = fetch_transcripts()
+    if df.empty:
+        return None, None
+    return summarize_meetings(df.head(1))
 
 # Exported variable for other scripts
 transcripts = fetch_transcripts()
