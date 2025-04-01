@@ -188,17 +188,17 @@ def fetch_recent_meetings(n=1):
     conn = connect_to_db()
     if not conn:
         return pd.DataFrame()
-    df = pd.read_sql("SELECT * FROM embeddings_shikha_20250324 WHERE category='meeting';", conn)
-    df['date'] = pd.to_datetime(df['date'], errors='coerce')
+    df = pd.read_sql("SELECT * FROM meeting_embeddings_shikha_20250401_new_6 WHERE category='meeting';", conn)
+    df['created_at'] = pd.to_datetime(df['created_at'], errors='coerce')
     conn.close()
-    return df.sort_values(by='date', ascending=False).head(n)
+    return df.sort_values(by='created_at', ascending=False).head(n)
 
 @st.cache_data
 def fetch_transcripts():
     try:
         conn = connect_to_db()
-        df = pd.read_sql("SELECT * FROM embeddings_shikha_20250324 WHERE category <> 'chats';", conn)
-        df["date"] = pd.to_datetime(df["date"], errors="coerce")
+        df = pd.read_sql("SELECT * FROM meeting_embeddings_shikha_20250401_new_6 WHERE category <> 'chats';", conn)
+        df["created_at"] = pd.to_datetime(df["created_at"], errors="coerce")
         return df
     except Exception as e:
         st.error(f"❌ Failed to fetch meeting transcripts: {e}")
@@ -207,7 +207,7 @@ def fetch_transcripts():
 transcripts = fetch_transcripts()
 
 def summarize_meetings(df, num_meetings=1):
-    latest = df.sort_values(by="date", ascending=False).head(num_meetings)
+    latest = df.sort_values(by="created_at", ascending=False).head(num_meetings)
     content = " ".join(latest["content"].tolist())[:4000]
 
     response = groq_client.chat.completions.create(
