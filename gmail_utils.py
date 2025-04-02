@@ -1,13 +1,23 @@
 import os
 import base64
-import json
 from google.oauth2.credentials import Credentials
 from googleapiclient.discovery import build
 from email import message_from_bytes
-from utils import call_llm  # assumes you have a function to call Groq/OpenAI, etc.
+from groq import Groq
 
 # Scopes
 SCOPES = ['https://www.googleapis.com/auth/gmail.readonly']
+
+# Groq API
+GROQ_API_KEY = os.environ.get("GROQ_API_KEY") or "your-groq-api-key"
+groq_client = Groq(api_key=GROQ_API_KEY)
+
+def call_llm(prompt):
+    response = groq_client.chat.completions.create(
+        model="llama-3.3-70b-specdec",
+        messages=[{"role": "user", "content": prompt}]
+    )
+    return response.choices[0].message.content.strip()
 
 def get_gmail_service():
     creds_path = 'token.json'
@@ -32,7 +42,7 @@ def fetch_latest_email():
     subject = next((h['value'] for h in headers if h['name'] == 'Subject'), '')
     sender = next((h['value'] for h in headers if h['name'] == 'From'), '')
     date = next((h['value'] for h in headers if h['name'] == 'Date'), '')
-    
+
     parts = msg['payload'].get('parts', [])
     body = ""
     for part in parts:
@@ -50,7 +60,7 @@ def fetch_latest_email():
 
 def summarize_email(email_body: str) -> str:
     prompt = f"Summarize the following email:\n\n{email_body}"
-    return call_llm(prompt)  # Replace with your LLM handler (e.g., Groq or OpenAI)
+    return call_llm(prompt)
 
 def draft_reply(email: dict, user_message: str) -> str:
     prompt = (
