@@ -125,33 +125,43 @@ if st.session_state.step == "summarize_meeting":
 # === Gmail Assistant ===
 if st.session_state.step == "email_assistant":
     st.subheader("📧 Gmail AI Assistant")
-    option = st.selectbox("Choose Action", ["Summarize Latest Email", "Draft Reply to Latest Email"])
 
+    email_action = st.selectbox("Choose Action", [
+        "Show Latest Email",
+        "Summarize Latest Email",
+        "Draft Reply"
+    ])
+
+    # Start timing
+    start_time = time.time()
     email = fetch_latest_email()
-    if email:
-        st.subheader("📩 Latest Email")
+
+    if not email:
+        st.error("❌ No emails found.")
+    else:
         st.markdown(f"**From:** {email['sender']}")
         st.markdown(f"**Subject:** {email['subject']}")
         st.markdown(f"**Date:** {email['date']}")
         st.text_area("Body", email['body'], height=200)
 
-        st.subheader("✍️ Draft Your Reply")
-        user_input = st.text_input("What do you want to say?")
-    
-        if user_input:
-            reply = draft_reply(email, user_input)
-            st.text_area("Drafted Reply", reply, height=200)
+        if email_action == "Summarize Latest Email":
+            summary = summarize_email(email["body"])
+            st.subheader("📌 Summary")
+            st.info(summary)
 
-            if st.button("✅ Send Email"):
-                result = send_reply_email(reply, email)
-                st.success(result)
+        elif email_action == "Draft AI Reply":
+            st.subheader("✉️ Drafted Reply")
+            reply = draft_reply(email, "Respond professionally")
+            st.text_area("Reply Draft", reply, height=200)
 
-    elif option == "Draft Reply to Latest Email":
-        user_message = st.text_area("What do you want to say?")
-        if st.button("✍️ Draft Reply"):
-            reply = draft_reply(email, user_message)
-            st.subheader("💬 Suggested Reply")
-            st.info(reply)
+            if st.button("✅ Send Reply"):
+                status = send_reply_email(reply, email)
+                st.success(status)
+
+    # Show execution time
+    end_time = time.time()
+    duration = round(end_time - start_time, 2)
+    st.caption(f"⏱️ Response Time: {duration} seconds")
 
     if st.button("🔙 Return to Main Menu"):
         st.session_state.step = "greet"
