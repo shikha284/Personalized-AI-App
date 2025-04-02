@@ -122,22 +122,23 @@ if st.session_state.step == "email_assistant":
     option = st.selectbox("Choose Action", ["Summarize Latest Email", "Draft Reply to Latest Email"])
 
     email = fetch_latest_email()
+    if email:
+        st.subheader("📩 Latest Email")
+        st.markdown(f"**From:** {email['sender']}")
+        st.markdown(f"**Subject:** {email['subject']}")
+        st.markdown(f"**Date:** {email['date']}")
+        st.text_area("Body", email['body'], height=200)
 
-    if not email:
-        st.error("No email found or Gmail not authorized.")
-        st.stop()
+        st.subheader("✍️ Draft Your Reply")
+        user_input = st.text_input("What do you want to say?")
+    
+        if user_input:
+            reply = draft_reply(email, user_input)
+            st.text_area("Drafted Reply", reply, height=200)
 
-    st.markdown(f"### 📩 Latest Email from: {email['sender']}")
-    st.markdown(f"**Subject**: {email['subject']}")
-    st.markdown(f"**Date**: {email['date']}")
-    st.markdown("**Content:**")
-    st.code(email['body'][:1000] if email.get("body") else "No body content.")
-
-    if option == "Summarize Latest Email":
-        if st.button("🧠 Summarize Email"):
-            summary = summarize_email(email['body'])
-            st.subheader("📋 Summary")
-            st.success(summary)
+            if st.button("✅ Send Email"):
+                result = send_reply_email(reply, email)
+                st.success(result)
 
     elif option == "Draft Reply to Latest Email":
         user_message = st.text_area("What do you want to say?")

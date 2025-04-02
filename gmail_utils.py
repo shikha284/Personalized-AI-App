@@ -1,14 +1,18 @@
 import os
 import base64
 from googleapiclient.discovery import build
+from email.message import EmailMessage
 from email import message_from_bytes
 from groq import Groq
 import streamlit as st
-from zoom_utils import authenticate_google  # Reuse existing logic
+from zoom_utils import authenticate_google  # Google auth reused
 
-# Groq API Setup
-GROQ_API_KEY = st.secrets["groq"]["api_key"]
-groq_client = Groq(api_key=GROQ_API_KEY)
+# --------------------------- Groq API Setup --------------------------- #
+if "groq" not in st.secrets or "api_key" not in st.secrets["groq"]:
+    st.error("❌ Groq API key not found in Streamlit secrets.")
+    st.stop()
+
+groq_client = Groq(api_key=st.secrets["groq"]["api_key"])
 
 def call_llm(prompt: str) -> str:
     try:
@@ -20,6 +24,7 @@ def call_llm(prompt: str) -> str:
     except Exception as e:
         return f"❌ Error calling LLM: {e}"
 
+# ---------------------- Gmail Access & Utilities ---------------------- #
 def get_gmail_service():
     creds = authenticate_google()
     if not creds:
@@ -40,10 +45,10 @@ def fetch_latest_email():
         subject = next((h['value'] for h in headers if h['name'] == 'Subject'), '')
         sender = next((h['value'] for h in headers if h['name'] == 'From'), '')
         date = next((h['value'] for h in headers if h['name'] == 'Date'), '')
-
         body = extract_plain_text_from_msg(msg)
 
         return {
+            'id': msg_id,
             'sender': sender,
             'subject': subject,
             'date': date,
@@ -51,7 +56,7 @@ def fetch_latest_email():
         }
 
     except Exception as e:
-        print("❌ Error fetching email:", e)
+        st.error(f"❌ Error fetching email: {e}")
         return None
 
 def extract_plain_text_from_msg(msg) -> str:
@@ -70,6 +75,7 @@ def extract_plain_text_from_msg(msg) -> str:
     except Exception as e:
         return f"❌ Error extracting plain text: {e}"
 
+# -------------------- Email Summarization & Reply -------------------- #
 def summarize_email(email_body: str) -> str:
     prompt = f"Summarize the following email:\n\n{email_body}"
     return call_llm(prompt)
@@ -78,6 +84,24 @@ def draft_reply(email: dict, user_message: str) -> str:
     prompt = (
         f"You received the following email from {email['sender']}:\n\n"
         f"{email['body']}\n\n"
-        f"Draft a professional reply based on this message:\n\n{user_message}"
+        f"Draft a professional reply based on this message and user's intent:\n\n{user_message}"
     )
     return call_llm(prompt)
+
+def send_reply_email(reply_text: str, original_email: dict):
+    try:
+        service = get_gmail_service()
+        msg = EmailMessage()
+        msg.set_content(reply_text)
+        msg['To'] = original_email['sender']
+        msg['Subject'] = "Re: " + original_email['subject']
+        msg['In-Reply-To'] = original_email['id']
+        msg['References'] = original_email['id']
+
+        # Encode and send
+        raw_msg = base64.urlsafe_b64encode(msg.as_bytes()).decode()
+        message = {'raw': raw_msg}
+        service.users().messages().send(userId="me", body=message).execute()
+        return "✅ Reply sent successfully."
+    except Exception as e:
+        return f"❌ Failed to send email: {e}"
