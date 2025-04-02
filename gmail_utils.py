@@ -2,29 +2,40 @@ import os
 import base64
 from googleapiclient.discovery import build
 from email.message import EmailMessage
-from email import message_from_bytes
-from groq import Groq
 import streamlit as st
 from zoom_utils import authenticate_google  # Google auth reused
 
-# --------------------------- Groq API Setup --------------------------- #
-if "groq" not in st.secrets or "api_key" not in st.secrets["groq"]:
-    st.error("❌ Groq API key not found in Streamlit secrets.")
+# ✅ Ensure groq is installed properly
+try:
+    from groq import Groq
+except ImportError:
+    st.error("❌ Groq package not found. Run `pip install groq`.")
     st.stop()
 
-groq_client = Groq(api_key=st.secrets["groq"]["api_key"])
+# ✅ Setup Groq client
+api_key = st.secrets.get("groq", {}).get("api_key", "")
+if not api_key or not api_key.startswith("gsk_"):
+    st.error("❌ Valid Groq API key not found in Streamlit secrets.")
+    st.stop()
 
+try:
+    groq_client = Groq(api_key=api_key)
+except Exception as e:
+    st.error(f"❌ Error initializing Groq client: {e}")
+    st.stop()
+
+# === Call Groq LLM ===
 def call_llm(prompt: str) -> str:
     try:
         response = groq_client.chat.completions.create(
-            model="llama-3.3-70b-specdec",
+            model="llama-3.3-70b-specdec",  # ✅ Official model name (update if needed)
             messages=[{"role": "user", "content": prompt}]
         )
         return response.choices[0].message.content.strip()
     except Exception as e:
         return f"❌ Error calling LLM: {e}"
 
-# ---------------------- Gmail Access & Utilities ---------------------- #
+# === Gmail Access ===
 def get_gmail_service():
     creds = authenticate_google()
     if not creds:
@@ -75,7 +86,7 @@ def extract_plain_text_from_msg(msg) -> str:
     except Exception as e:
         return f"❌ Error extracting plain text: {e}"
 
-# -------------------- Email Summarization & Reply -------------------- #
+# === Email Actions ===
 def summarize_email(email_body: str) -> str:
     prompt = f"Summarize the following email:\n\n{email_body}"
     return call_llm(prompt)
@@ -84,7 +95,7 @@ def draft_reply(email: dict, user_message: str) -> str:
     prompt = (
         f"You received the following email from {email['sender']}:\n\n"
         f"{email['body']}\n\n"
-        f"Draft a professional reply based on this message and user's intent:\n\n{user_message}"
+        f"Draft a professional reply based on this message and your response intent:\n\n{user_message}"
     )
     return call_llm(prompt)
 
@@ -95,10 +106,7 @@ def send_reply_email(reply_text: str, original_email: dict):
         msg.set_content(reply_text)
         msg['To'] = original_email['sender']
         msg['Subject'] = "Re: " + original_email['subject']
-        msg['In-Reply-To'] = original_email['id']
-        msg['References'] = original_email['id']
 
-        # Encode and send
         raw_msg = base64.urlsafe_b64encode(msg.as_bytes()).decode()
         message = {'raw': raw_msg}
         service.users().messages().send(userId="me", body=message).execute()
