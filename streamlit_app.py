@@ -1,6 +1,6 @@
 import streamlit as st
-from gmail_utils import fetch_latest_email, summarize_email, draft_reply
 from datetime import datetime
+from gmail_utils import fetch_latest_email, summarize_email, draft_reply
 from zoom_utils import (
     schedule_zoom_meeting,
     send_email_reminder,
@@ -11,10 +11,12 @@ from zoom_utils import (
     add_to_calendar
 )
 
-st.set_page_config(page_title="Shikha's Personalized AI Assistant")
+# ✅ Streamlit config must be first
+st.set_page_config(page_title="Shikha's Personalized AI Assistant", page_icon="🤖")
+
+# === Title & Auth ===
 st.title("🤖 Shikha's Personalized AI Assistant")
 
-# 🔐 Google Auth
 if not st.session_state.get("google_authenticated"):
     st.subheader("🔐 Google Authorization Required")
     silent_auth = authenticate_google(interactive=False)
@@ -44,7 +46,7 @@ if not st.session_state.get("google_authenticated"):
                 st.error("❌ Authorization failed. Try again.")
     st.stop()
 
-# Navigation
+# === Navigation ===
 if "step" not in st.session_state:
     st.session_state.step = "greet"
 
@@ -55,12 +57,12 @@ if st.session_state.step == "greet":
         normalized = user_input.lower()
         if "schedule" in normalized and "zoom" in normalized:
             st.session_state.step = "collect_zoom_info"
-        elif "summarize" in normalized:
-            st.session_state.step = "summarize_meeting"
+        elif "summarize" in normalized or "email" in normalized:
+            st.session_state.step = "email_assistant"
         else:
-            st.warning("Try: 'schedule zoom meeting' or 'summarize recent meeting'.")
+            st.warning("Try: 'schedule zoom meeting' or 'summarize email'.")
 
-# Zoom Scheduling
+# === Zoom Scheduler ===
 if st.session_state.step == "collect_zoom_info":
     st.subheader("📅 Schedule Zoom Meeting")
     topic = st.text_input("Meeting Topic")
@@ -91,7 +93,7 @@ if st.session_state.step == "collect_zoom_info":
         else:
             st.error("Please complete all fields.")
 
-# Meeting Summary & Sentiment
+# === Meeting Summarization ===
 if st.session_state.step == "summarize_meeting":
     st.subheader("📑 Summarize & Analyze Meetings")
     view_mode = st.radio("Filter by", ["Latest", "By Date"], horizontal=True)
@@ -114,32 +116,35 @@ if st.session_state.step == "summarize_meeting":
     if st.button("🔙 Go Back"):
         st.session_state.step = "greet"
 
-st.set_page_config(page_title="📧 Gmail Assistant", page_icon="📬")
-st.title("📬 Gmail AI Assistant")
+# === Gmail Assistant ===
+if st.session_state.step == "email_assistant":
+    st.subheader("📧 Gmail AI Assistant")
+    option = st.selectbox("Choose Action", ["Summarize Latest Email", "Draft Reply to Latest Email"])
 
-option = st.selectbox("Choose Action", ["Summarize Latest Email", "Draft Reply to Latest Email"])
+    email = fetch_latest_email()
 
-email = fetch_latest_email()
+    if not email:
+        st.error("No email found or Gmail not authorized.")
+        st.stop()
 
-if not email:
-    st.error("No email found or Gmail not authorized.")
-    st.stop()
+    st.markdown(f"### 📩 Latest Email from: {email['sender']}")
+    st.markdown(f"**Subject**: {email['subject']}")
+    st.markdown(f"**Date**: {email['date']}")
+    st.markdown("**Content:**")
+    st.code(email['body'][:1000])
 
-st.markdown(f"### 📩 Latest Email from: {email['sender']}")
-st.markdown(f"**Subject**: {email['subject']}")
-st.markdown(f"**Date**: {email['date']}")
-st.markdown("**Content**:")
-st.code(email['body'][:1000])
+    if option == "Summarize Latest Email":
+        if st.button("🧠 Summarize Email"):
+            summary = summarize_email(email['body'])
+            st.subheader("📋 Summary")
+            st.success(summary)
 
-if option == "Summarize Latest Email":
-    if st.button("🧠 Summarize Email"):
-        summary = summarize_email(email['body'])
-        st.subheader("📋 Summary")
-        st.success(summary)
+    elif option == "Draft Reply to Latest Email":
+        user_message = st.text_area("What do you want to say?")
+        if st.button("✍️ Draft Reply"):
+            reply = draft_reply(email, user_message)
+            st.subheader("💬 Suggested Reply")
+            st.info(reply)
 
-elif option == "Draft Reply to Latest Email":
-    user_message = st.text_area("What do you want to say?")
-    if st.button("✍️ Draft Reply"):
-        reply = draft_reply(email, user_message)
-        st.subheader("💬 Suggested Reply")
-        st.info(reply)
+    if st.button("🔙 Return to Main Menu"):
+        st.session_state.step = "greet"
