@@ -38,6 +38,8 @@ CLIENT_CONFIG = {
 # --- Auth ---
 def authenticate_google(interactive=False, auth_code=None):
     if os.path.exists("token.pkl"):
+        os.remove("token.pkl") 
+    if os.path.exists("token.pkl"):
         with open("token.pkl", "rb") as token:
             creds = pickle.load(token)
         if creds and creds.valid:
