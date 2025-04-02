@@ -11,12 +11,6 @@ from zoom_utils import (
     transcripts,
     add_to_calendar
 )
-from gmail_utils import (
-    fetch_latest_email,
-    summarize_email,
-    draft_reply,
-    send_reply_email  # ✅ This was missing
-)
 
 # ✅ Streamlit config must be first
 st.set_page_config(page_title="Shikha's Personalized AI Assistant", page_icon="🤖")
@@ -64,7 +58,7 @@ if st.session_state.step == "greet":
         normalized = user_input.lower()
         if "schedule" in normalized and "zoom" in normalized:
             st.session_state.step = "collect_zoom_info"
-        elif "summarize" in normalized or "email" in normalized:
+        elif "email" in normalized or "summarize" in normalized:
             st.session_state.step = "email_assistant"
         else:
             st.warning("Try: 'schedule zoom meeting' or 'summarize email'.")
@@ -74,14 +68,14 @@ if st.session_state.step == "collect_zoom_info":
     st.subheader("📅 Schedule Zoom Meeting")
     topic = st.text_input("Meeting Topic")
     date = st.date_input("Date")
-    time = st.time_input("Time")
+    time_input = st.time_input("Time")
     duration = st.number_input("Duration (minutes)", min_value=15, max_value=240, value=30)
     timezone = st.selectbox("Time Zone", ["Asia/Kolkata", "America/Los_Angeles", "UTC"])
     emails = st.text_area("Participant Emails (comma-separated)")
 
     if st.button("🚀 Schedule"):
         if topic and emails:
-            start_datetime = datetime.combine(date, time)
+            start_datetime = datetime.combine(date, time_input)
             zoom_link, zoom_status = schedule_zoom_meeting(topic, start_datetime, duration, timezone)
             if zoom_link:
                 cal_link = add_to_calendar(topic, start_datetime, duration, timezone, zoom_link)
@@ -133,7 +127,6 @@ if st.session_state.step == "email_assistant":
         "Draft Reply"
     ])
 
-    # Start timing
     start_time = time.time()
     email = fetch_latest_email()
 
@@ -150,16 +143,15 @@ if st.session_state.step == "email_assistant":
             st.subheader("📌 Summary")
             st.info(summary)
 
-        elif email_action == "Draft AI Reply":
+        elif email_action == "Draft Reply":
             st.subheader("✉️ Drafted Reply")
-            reply = draft_reply(email, "Respond professionally")
+            reply = draft_reply(email, "Please reply professionally to this inquiry.")
             st.text_area("Reply Draft", reply, height=200)
 
             if st.button("✅ Send Reply"):
                 status = send_reply_email(reply, email)
                 st.success(status)
 
-    # Show execution time
     end_time = time.time()
     duration = round(end_time - start_time, 2)
     st.caption(f"⏱️ Response Time: {duration} seconds")
