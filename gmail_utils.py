@@ -4,6 +4,7 @@ from google.oauth2.credentials import Credentials
 from googleapiclient.discovery import build
 from email import message_from_bytes
 from groq import Groq
+from zoom_utils import authenticate_google  # reuse existing logic
 
 # Scopes
 SCOPES = ['https://www.googleapis.com/auth/gmail.readonly']
@@ -20,13 +21,10 @@ def call_llm(prompt):
     return response.choices[0].message.content.strip()
 
 def get_gmail_service():
-    creds_path = 'token.json'
-    if not os.path.exists(creds_path):
-        raise Exception("Gmail token.json not found. Please authenticate.")
-
-    creds = Credentials.from_authorized_user_file(creds_path, SCOPES)
-    service = build('gmail', 'v1', credentials=creds)
-    return service
+    creds = authenticate_google()
+    if not creds:
+        raise Exception("Google authentication failed for Gmail.")
+    return build('gmail', 'v1', credentials=creds)
 
 def fetch_latest_email():
     service = get_gmail_service()
