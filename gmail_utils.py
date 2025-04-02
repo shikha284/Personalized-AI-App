@@ -3,10 +3,11 @@ import base64
 from googleapiclient.discovery import build
 from email import message_from_bytes
 from groq import Groq
+import streamlit as st
 from zoom_utils import authenticate_google  # Reuse existing logic
 
 # Groq API Setup
-GROQ_API_KEY = os.environ.get("GROQ_API_KEY") or "your-groq-api-key"
+GROQ_API_KEY = st.secrets["groq"]["api_key"]
 groq_client = Groq(api_key=GROQ_API_KEY)
 
 def call_llm(prompt: str) -> str:
