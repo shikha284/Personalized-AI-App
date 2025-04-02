@@ -1,6 +1,6 @@
 import streamlit as st
 from datetime import datetime
-from gmail_utils import fetch_latest_email, summarize_email, draft_reply
+from gmail_utils import fetch_latest_email, summarize_email, draft_reply, send_reply_email
 from zoom_utils import (
     schedule_zoom_meeting,
     send_email_reminder,
@@ -9,6 +9,12 @@ from zoom_utils import (
     summarize_latest_meeting,
     transcripts,
     add_to_calendar
+)
+from gmail_utils import (
+    fetch_latest_email,
+    summarize_email,
+    draft_reply,
+    send_reply_email  # ✅ This was missing
 )
 
 # ✅ Streamlit config must be first
