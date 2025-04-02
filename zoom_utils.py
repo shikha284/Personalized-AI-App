@@ -52,7 +52,8 @@ def authenticate_google(interactive=False, auth_code=None):
         CLIENT_CONFIG,
         scopes=[
             "https://www.googleapis.com/auth/calendar.events",
-            "https://www.googleapis.com/auth/gmail.send"
+            "https://www.googleapis.com/auth/gmail.send",
+            "https://www.googleapis.com/auth/gmail.readonly"
         ],
         redirect_uri=CLIENT_CONFIG["web"]["redirect_uris"][0]
     )

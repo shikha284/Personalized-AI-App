@@ -131,7 +131,7 @@ if st.session_state.step == "email_assistant":
     st.markdown(f"**Subject**: {email['subject']}")
     st.markdown(f"**Date**: {email['date']}")
     st.markdown("**Content:**")
-    st.code(email['body'][:1000])
+    st.code(email['body'][:1000] if email.get("body") else "No body content.")
 
     if option == "Summarize Latest Email":
         if st.button("🧠 Summarize Email"):
