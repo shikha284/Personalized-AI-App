@@ -7,6 +7,7 @@ from googleapiclient.discovery import build
 from groq import Groq
 import streamlit as st
 from auth_utils import authenticate_google
+from eval_utils import g_eval, if_eval, halu_eval, truthful_qa_eval
 
 ZOOM_CLIENT_ID = st.secrets["zoom"]["client_id"]
 ZOOM_CLIENT_SECRET = st.secrets["zoom"]["client_secret"]
@@ -102,8 +103,15 @@ def schedule_zoom_meeting(topic, start_time, duration, time_zone):
     }
     res = requests.post("https://api.zoom.us/v2/users/me/meetings", headers=headers, json=meeting_data)
     duration_sec = round(time.time() - start, 2)
+
     if res.status_code == 201:
-        return res.json().get("join_url"), "✅ Zoom meeting scheduled!", duration_sec
+        join_url = res.json().get("join_url")
+        # ✅ HALUeval on Zoom agenda
+        agenda_text = meeting_data["agenda"]
+        input_struct = {"topic": topic, "start_time": start_time.isoformat(), "duration": duration}
+        halu_score = halu_eval(agenda_text, input_struct)
+        print("[HALUeval - Zoom Agenda]", halu_score)
+        return join_url, "✅ Zoom meeting scheduled!", duration_sec
     else:
         return None, f"❌ Zoom scheduling failed: {res.json()}", duration_sec
 
@@ -141,6 +149,15 @@ def summarize_meetings(df):
             model="llama-3.3-70b-specdec",
             messages=[{"role": "user", "content": f"Analyze the sentiment of this meeting transcript:\n\n{content}"}]
         ).choices[0].message.content
+
+        # ✅ Apply all evaluations
+        g_score = g_eval(summary, reference=content)
+        if_score = if_eval(summary, source=content)
+        truth_score = truthful_qa_eval(sentiment)
+
+        print("[G-Eval]", g_score)
+        print("[IFEval]", if_score)
+        print("[TruthfulQA Sentiment Eval]", truth_score)
 
         return summary.strip(), sentiment.strip(), round(time.time() - start, 2)
 

@@ -11,6 +11,7 @@ from zoom_utils import (
     get_transcripts,
     add_to_calendar
 )
+from eval_utils import g_eval, if_eval, halu_eval, truthful_qa_eval
 
 st.set_page_config(page_title="Shikha's Personalized AI Assistant", page_icon="🤖")
 st.title("🤖 Shikha's Personalized AI Assistant")
@@ -112,11 +113,33 @@ if st.session_state.step == "email_assistant":
             summary = summarize_email(email["body"])
             st.subheader("📌 Summary")
             st.info(summary)
+            with st.expander("📊 Evaluation Metrics"):
+                st.markdown("**G-Eval**")
+                st.code(g_eval(summary, reference=email["body"]))
+                st.markdown("**IFEval**")
+                st.code(if_eval(summary, source=email["body"]))
 
         elif email_action == "Draft Reply":
             st.subheader("✉️ Drafted Reply")
-            reply = draft_reply(email, "Please reply professionally to this inquiry.")
+            user_intent = "Please reply professionally to this inquiry."
+            reply = draft_reply(email, user_intent)
             st.text_area("Reply Draft", reply, height=200)
+
+            input_struct = {
+                "sender": email["sender"],
+                "subject": email["subject"],
+                "original_message": email["body"],
+                "user_intent": user_intent
+            }
+
+            with st.expander("📊 Evaluation Metrics"):
+                st.markdown("**HALUeval**")
+                st.code(halu_eval(reply, input_struct))
+                st.markdown("**IFEval**")
+                st.code(if_eval(reply, source=email["body"]))
+                st.markdown("**TruthfulQA**")
+                st.code(truthful_qa_eval(reply))
+
             if st.button("✅ Send Reply"):
                 status = send_reply_email(reply, email)
                 st.success(status)
@@ -147,6 +170,15 @@ if st.session_state.step == "summarize_meeting":
             st.markdown("### 🗨️ Sentiment")
             st.success(sentiment or "No sentiment detected.")
             st.caption(f"⏱️ Response Time: {response_time} seconds")
+
+            with st.expander("📊 Evaluation Metrics"):
+                joined_text = " ".join(filtered_df["content"].tolist())
+                st.markdown("**G-Eval**")
+                st.code(g_eval(summary, reference=joined_text))
+                st.markdown("**IFEval**")
+                st.code(if_eval(summary, source=joined_text))
+                st.markdown("**TruthfulQA - Sentiment**")
+                st.code(truthful_qa_eval(sentiment))
 
     if st.button("🔙 Return to Main Menu"):
         st.session_state.step = "greet"

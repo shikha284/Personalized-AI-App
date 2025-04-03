@@ -5,6 +5,7 @@ from googleapiclient.discovery import build
 from email.message import EmailMessage
 import streamlit as st
 from auth_utils import authenticate_google
+from eval_utils import g_eval, if_eval, halu_eval, truthful_qa_eval
 
 try:
     from groq import Groq
@@ -92,8 +93,12 @@ def extract_plain_text_from_msg(msg) -> str:
         return f"❌ Error extracting content: {e}"
 
 def summarize_email(email_body: str) -> str:
-    prompt = f"Summarize the following email:\n\n{email_body}"
-    return call_llm(prompt)
+    summary = call_llm(f"Summarize the following email:\n\n{email_body}")
+    g_score = g_eval(summary, reference=email_body)
+    if_score = if_eval(summary, source=email_body)
+    print("[G-Eval - Email Summary]", g_score)
+    print("[IFEval - Email Summary]", if_score)
+    return summary
 
 def draft_reply(email: dict, user_message: str) -> str:
     prompt = (
@@ -101,7 +106,24 @@ def draft_reply(email: dict, user_message: str) -> str:
         f"{email['body']}\n\n"
         f"Draft a professional reply based on this message and your response intent:\n\n{user_message}"
     )
-    return call_llm(prompt)
+    reply = call_llm(prompt)
+
+    # Evaluate reply
+    input_struct = {
+        "sender": email["sender"],
+        "subject": email["subject"],
+        "original_message": email["body"],
+        "user_intent": user_message
+    }
+    halu_score = halu_eval(reply, input_struct)
+    if_score = if_eval(reply, source=email['body'])
+    truth_score = truthful_qa_eval(reply)
+
+    print("[HALUeval - Draft Reply]", halu_score)
+    print("[IFEval - Draft Reply]", if_score)
+    print("[TruthfulQA - Draft Reply]", truth_score)
+
+    return reply
 
 def send_reply_email(reply_text: str, original_email: dict):
     try:
