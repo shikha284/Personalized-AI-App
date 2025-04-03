@@ -1,12 +1,12 @@
-import os, base64, pickle, pytz, requests, psycopg2
+import os, base64, pytz, requests, psycopg2
 import pandas as pd
 import time
 from datetime import datetime, timedelta
 from email.mime.text import MIMEText
 from googleapiclient.discovery import build
-from auth_utils import authenticate_google
 from groq import Groq
 import streamlit as st
+from auth_utils import authenticate_google
 
 ZOOM_CLIENT_ID = st.secrets["zoom"]["client_id"]
 ZOOM_CLIENT_SECRET = st.secrets["zoom"]["client_secret"]
@@ -21,54 +21,6 @@ DB_CONFIG = {
     "password": "vijay_secure_password_2025",
     "database": "mydatabase"
 }
-
-CLIENT_CONFIG = {
-    "web": {
-        "client_id": st.secrets["gmail_oauth"]["client_id"],
-        "client_secret": st.secrets["gmail_oauth"]["client_secret"],
-        "redirect_uris": [st.secrets["gmail_oauth"]["redirect_uri"]],
-        "auth_uri": "https://accounts.google.com/o/oauth2/auth",
-        "token_uri": "https://oauth2.googleapis.com/token"
-    }
-}
-
-def authenticate_google(interactive=False, auth_code=None):
-    if interactive and os.path.exists("token.pkl"):
-        os.remove("token.pkl")
-    creds = None
-    if os.path.exists("token.pkl"):
-        with open("token.pkl", "rb") as token:
-            creds = pickle.load(token)
-        if creds and creds.valid:
-            return True if interactive else creds
-        if creds and creds.expired and creds.refresh_token:
-            creds.refresh(Request())
-            with open("token.pkl", "wb") as token:
-                pickle.dump(creds, token)
-            return creds
-    flow = Flow.from_client_config(
-        CLIENT_CONFIG,
-        scopes=[
-            "https://www.googleapis.com/auth/calendar.events",
-            "https://www.googleapis.com/auth/gmail.send",
-            "https://www.googleapis.com/auth/gmail.readonly"
-        ],
-        redirect_uri=CLIENT_CONFIG["web"]["redirect_uris"][0]
-    )
-    if interactive and auth_code is None:
-        auth_url, _ = flow.authorization_url(prompt="consent")
-        return auth_url, "auth_code_input"
-    elif interactive and auth_code:
-        try:
-            flow.fetch_token(code=auth_code)
-            creds = flow.credentials
-            with open("token.pkl", "wb") as token:
-                pickle.dump(creds, token)
-            return True
-        except Exception as e:
-            print("❌ Token fetch failed:", e)
-            return False
-    return None
 
 def add_to_calendar(topic, start_time, duration, time_zone, zoom_link):
     start = time.time()
@@ -95,16 +47,14 @@ def send_email_reminder(subject, body, recipients):
         return False, 0
     service = build("gmail", "v1", credentials=creds)
     for email in recipients:
-        html_body = f"""
-        <html><body>
+        html_body = f"""<html><body>
         <p>Hi there,</p>
         <p>You are invited to the following Zoom meeting:</p>
-        <p><strong>📌 Topic:</strong> {subject.replace("📌 Zoom Meeting: ", "")}<br>
-        <strong>🕒 Time:</strong> {body.get("time")}<br>
-        <strong>🔗 Join Zoom Meeting:</strong> <a href="{body.get("link")}">{body.get("link")}</a></p>
+        <p><strong>📌 Topic:</strong> {subject.replace('📌 Zoom Meeting: ', '')}<br>
+        <strong>🕒 Time:</strong> {body.get('time')}<br>
+        <strong>🔗 Join Zoom Meeting:</strong> <a href="{body.get('link')}">{body.get('link')}</a></p>
         <p>Please join on time.</p>
-        <p>Regards,<br>Shikha</p></body></html>
-        """
+        <p>Regards,<br>Shikha</p></body></html>"""
         msg = MIMEText(html_body, "html")
         msg["to"] = email
         msg["from"] = "me"
@@ -189,9 +139,7 @@ def summarize_meetings(df):
 
         sentiment = groq_client.chat.completions.create(
             model="llama-3.3-70b-specdec",
-            messages=[{"role": "user", "content": f"Analyze the sentiment of this meeting transcript:
-
-{content}"}]
+            messages=[{"role": "user", "content": f"Analyze the sentiment of this meeting transcript:\n\n{content}"}]
         ).choices[0].message.content
 
         return summary.strip(), sentiment.strip(), round(time.time() - start, 2)

@@ -82,39 +82,22 @@ if st.session_state.step == "collect_zoom_info":
                 st.success("✅ Zoom Meeting Scheduled!")
                 st.markdown(f"[🔗 Join Meeting]({zoom_link})")
                 st.markdown(f"[📅 View in Calendar]({cal_link})")
-                st.caption(f"⏱️ Zoom API: {zoom_time}s | Calendar: {cal_time}s | Email: {email_time}s")
+                st.caption(f"⏱️ Zoom API Time: {zoom_time}s | Calendar: {cal_time}s | Email: {email_time}s")
             else:
                 st.error(zoom_status)
             st.session_state.step = "greet"
         else:
             st.error("Please complete all fields.")
 
-if st.session_state.step == "summarize_meeting":
-    st.subheader("📑 Summarize & Analyze Meetings")
-    view_mode = st.radio("Filter by", ["Latest", "By Date"], horizontal=True)
-    filtered_df = get_transcripts().copy()
-
-    if view_mode == "By Date":
-        selected_date = st.date_input("Pick a Date")
-        filtered_df = filtered_df[filtered_df["created_at"].dt.date == selected_date]
-
-    if st.button("📄 Generate Summary & Sentiment"):
-        if filtered_df.empty:
-            st.warning("⚠️ No transcripts found for this filter.")
-        else:
-            summary, sentiment, time_taken = summarize_meetings(filtered_df)
-            st.markdown("### ✅ Summary")
-            st.info(summary or "No summary generated.")
-            st.markdown("### 💬 Sentiment")
-            st.success(sentiment or "No sentiment detected.")
-            st.caption(f"⏱️ Processed in {time_taken} seconds")
-
-    if st.button("🔙 Go Back"):
-        st.session_state.step = "greet"
-
 if st.session_state.step == "email_assistant":
     st.subheader("📧 Gmail AI Assistant")
-    email_action = st.selectbox("Choose Action", ["Show Latest Email", "Summarize Latest Email", "Draft Reply"])
+
+    email_action = st.selectbox("Choose Action", [
+        "Show Latest Email",
+        "Summarize Latest Email",
+        "Draft Reply"
+    ])
+
     start_time = time.time()
     email = fetch_latest_email()
 
@@ -135,10 +118,37 @@ if st.session_state.step == "email_assistant":
             st.subheader("✉️ Drafted Reply")
             reply = draft_reply(email, "Please reply professionally to this inquiry.")
             st.text_area("Reply Draft", reply, height=200)
+
             if st.button("✅ Send Reply"):
                 status = send_reply_email(reply, email)
                 st.success(status)
 
-    st.caption(f"⏱️ Response Time: {round(time.time() - start_time, 2)} seconds")
+    end_time = time.time()
+    st.caption(f"⏱️ Response Time: {round(end_time - start_time, 2)} seconds")
+
     if st.button("🔙 Return to Main Menu"):
+        st.session_state.step = "greet"
+
+if st.session_state.step == "summarize_meeting":
+    st.subheader("📁 Summarize & Analyze Meetings")
+    view_mode = st.radio("Filter by", ["Latest", "By Date"], horizontal=True)
+    transcripts = get_transcripts()
+    filtered_df = transcripts.copy()
+
+    if view_mode == "By Date":
+        selected_date = st.date_input("Pick a Date")
+        filtered_df = filtered_df[filtered_df["created_at"].dt.date == selected_date]
+
+    if st.button("📄 Generate Summary & Sentiment"):
+        if filtered_df.empty:
+            st.warning("⚠️ No transcripts found for this filter.")
+        else:
+            summary, sentiment, response_time = summarize_meetings(filtered_df)
+            st.markdown("### ✅ Summary")
+            st.info(summary or "No summary generated.")
+            st.markdown("### 🗨️ Sentiment")
+            st.success(sentiment or "No sentiment detected.")
+            st.caption(f"⏱️ Response Time: {response_time} seconds")
+
+    if st.button("🔙 Go Back"):
         st.session_state.step = "greet"

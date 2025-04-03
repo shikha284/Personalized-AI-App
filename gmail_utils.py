@@ -3,28 +3,21 @@ import base64
 from googleapiclient.discovery import build
 from email.message import EmailMessage
 import streamlit as st
-from auth_utils import authenticate_google  # ✅ FIXED: No circular import
+from auth_utils import authenticate_google
 
-# ✅ Ensure groq is installed properly
 try:
     from groq import Groq
 except ImportError:
     st.error("❌ Groq package not found. Run `pip install groq`.")
     st.stop()
 
-# ✅ Setup Groq client
 api_key = st.secrets.get("groq", {}).get("api_key", "")
 if not api_key or not api_key.startswith("gsk_"):
     st.error("❌ Valid Groq API key not found in Streamlit secrets.")
     st.stop()
 
-try:
-    groq_client = Groq(api_key=api_key)
-except Exception as e:
-    st.error(f"❌ Error initializing Groq client: {e}")
-    st.stop()
+groq_client = Groq(api_key=api_key)
 
-# === Call Groq LLM ===
 def call_llm(prompt: str) -> str:
     try:
         response = groq_client.chat.completions.create(
@@ -35,7 +28,6 @@ def call_llm(prompt: str) -> str:
     except Exception as e:
         return f"❌ Error calling LLM: {e}"
 
-# === Gmail Access ===
 def get_gmail_service():
     creds = authenticate_google()
     if not creds:
@@ -86,7 +78,6 @@ def extract_plain_text_from_msg(msg) -> str:
     except Exception as e:
         return f"❌ Error extracting plain text: {e}"
 
-# === Email Actions ===
 def summarize_email(email_body: str) -> str:
     prompt = f"Summarize the following email:\n\n{email_body}"
     return call_llm(prompt)
@@ -106,7 +97,6 @@ def send_reply_email(reply_text: str, original_email: dict):
         msg.set_content(reply_text)
         msg['To'] = original_email['sender']
         msg['Subject'] = "Re: " + original_email['subject']
-
         raw_msg = base64.urlsafe_b64encode(msg.as_bytes()).decode()
         message = {'raw': raw_msg}
         service.users().messages().send(userId="me", body=message).execute()
