@@ -8,14 +8,11 @@ from zoom_utils import (
     authenticate_google,
     summarize_meetings,
     summarize_latest_meeting,
-    transcripts,
+    get_transcripts,
     add_to_calendar
 )
 
-# ✅ Streamlit config must be first
 st.set_page_config(page_title="Shikha's Personalized AI Assistant", page_icon="🤖")
-
-# === Title & Auth ===
 st.title("🤖 Shikha's Personalized AI Assistant")
 
 if not st.session_state.get("google_authenticated"):
@@ -47,7 +44,6 @@ if not st.session_state.get("google_authenticated"):
                 st.error("❌ Authorization failed. Try again.")
     st.stop()
 
-# === Navigation ===
 if "step" not in st.session_state:
     st.session_state.step = "greet"
 
@@ -63,7 +59,6 @@ if st.session_state.step == "greet":
         else:
             st.warning("Try: 'schedule zoom meeting' or 'summarize email'.")
 
-# === Zoom Scheduler ===
 if st.session_state.step == "collect_zoom_info":
     st.subheader("📅 Schedule Zoom Meeting")
     topic = st.text_input("Meeting Topic")
@@ -76,10 +71,10 @@ if st.session_state.step == "collect_zoom_info":
     if st.button("🚀 Schedule"):
         if topic and emails:
             start_datetime = datetime.combine(date, time_input)
-            zoom_link, zoom_status = schedule_zoom_meeting(topic, start_datetime, duration, timezone)
+            zoom_link, zoom_status, zoom_time = schedule_zoom_meeting(topic, start_datetime, duration, timezone)
             if zoom_link:
-                cal_link = add_to_calendar(topic, start_datetime, duration, timezone, zoom_link)
-                email_sent = send_email_reminder(
+                cal_link, cal_time = add_to_calendar(topic, start_datetime, duration, timezone, zoom_link)
+                email_sent, email_time = send_email_reminder(
                     f"📌 Zoom Meeting: {topic}",
                     {"time": start_datetime.strftime('%Y-%m-%d %I:%M %p'), "link": zoom_link},
                     [e.strip() for e in emails.split(",")]
@@ -87,18 +82,17 @@ if st.session_state.step == "collect_zoom_info":
                 st.success("✅ Zoom Meeting Scheduled!")
                 st.markdown(f"[🔗 Join Meeting]({zoom_link})")
                 st.markdown(f"[📅 View in Calendar]({cal_link})")
-                st.success("📧 Email sent!" if email_sent else "⚠️ Email failed.")
+                st.caption(f"⏱️ Zoom API: {zoom_time}s | Calendar: {cal_time}s | Email: {email_time}s")
             else:
                 st.error(zoom_status)
             st.session_state.step = "greet"
         else:
             st.error("Please complete all fields.")
 
-# === Meeting Summarization ===
 if st.session_state.step == "summarize_meeting":
     st.subheader("📑 Summarize & Analyze Meetings")
     view_mode = st.radio("Filter by", ["Latest", "By Date"], horizontal=True)
-    filtered_df = transcripts.copy()
+    filtered_df = get_transcripts().copy()
 
     if view_mode == "By Date":
         selected_date = st.date_input("Pick a Date")
@@ -108,25 +102,19 @@ if st.session_state.step == "summarize_meeting":
         if filtered_df.empty:
             st.warning("⚠️ No transcripts found for this filter.")
         else:
-            summary, sentiment = summarize_meetings(filtered_df)
+            summary, sentiment, time_taken = summarize_meetings(filtered_df)
             st.markdown("### ✅ Summary")
             st.info(summary or "No summary generated.")
             st.markdown("### 💬 Sentiment")
             st.success(sentiment or "No sentiment detected.")
+            st.caption(f"⏱️ Processed in {time_taken} seconds")
 
     if st.button("🔙 Go Back"):
         st.session_state.step = "greet"
 
-# === Gmail Assistant ===
 if st.session_state.step == "email_assistant":
     st.subheader("📧 Gmail AI Assistant")
-
-    email_action = st.selectbox("Choose Action", [
-        "Show Latest Email",
-        "Summarize Latest Email",
-        "Draft Reply"
-    ])
-
+    email_action = st.selectbox("Choose Action", ["Show Latest Email", "Summarize Latest Email", "Draft Reply"])
     start_time = time.time()
     email = fetch_latest_email()
 
@@ -147,14 +135,10 @@ if st.session_state.step == "email_assistant":
             st.subheader("✉️ Drafted Reply")
             reply = draft_reply(email, "Please reply professionally to this inquiry.")
             st.text_area("Reply Draft", reply, height=200)
-
             if st.button("✅ Send Reply"):
                 status = send_reply_email(reply, email)
                 st.success(status)
 
-    end_time = time.time()
-    duration = round(end_time - start_time, 2)
-    st.caption(f"⏱️ Response Time: {duration} seconds")
-
+    st.caption(f"⏱️ Response Time: {round(time.time() - start_time, 2)} seconds")
     if st.button("🔙 Return to Main Menu"):
         st.session_state.step = "greet"
