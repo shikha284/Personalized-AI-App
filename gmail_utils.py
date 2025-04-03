@@ -1,5 +1,6 @@
 import os
 import base64
+import html2text
 from googleapiclient.discovery import build
 from email.message import EmailMessage
 import streamlit as st
@@ -65,18 +66,30 @@ def fetch_latest_email():
 def extract_plain_text_from_msg(msg) -> str:
     try:
         payload = msg['payload']
+
         if 'parts' in payload:
             for part in payload['parts']:
                 if part['mimeType'] == 'text/plain':
                     data = part['body']['data']
                     return base64.urlsafe_b64decode(data.encode("ASCII")).decode("utf-8")
+
+            # Fallback to HTML if no plain text
+            for part in payload['parts']:
+                if part['mimeType'] == 'text/html':
+                    html_data = part['body']['data']
+                    html = base64.urlsafe_b64decode(html_data.encode("ASCII")).decode("utf-8")
+                    return html2text.html2text(html)
+
         else:
+            # Single part fallback
             body = payload.get('body', {}).get('data', '')
             if body:
-                return base64.urlsafe_b64decode(body.encode("ASCII")).decode("utf-8")
-        return "❓ No plain text content found."
+                decoded = base64.urlsafe_b64decode(body.encode("ASCII")).decode("utf-8")
+                return html2text.html2text(decoded)
+
+        return "❓ No readable content found."
     except Exception as e:
-        return f"❌ Error extracting plain text: {e}"
+        return f"❌ Error extracting content: {e}"
 
 def summarize_email(email_body: str) -> str:
     prompt = f"Summarize the following email:\n\n{email_body}"
