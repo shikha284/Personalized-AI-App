@@ -4,8 +4,7 @@ import time
 from datetime import datetime, timedelta
 from email.mime.text import MIMEText
 from googleapiclient.discovery import build
-from google_auth_oauthlib.flow import Flow
-from google.auth.transport.requests import Request
+from auth_utils import authenticate_google
 from groq import Groq
 import streamlit as st
 
