@@ -56,4 +56,3 @@ def authenticate_google(interactive=False, auth_code=None):
             return False
 
     return None
-

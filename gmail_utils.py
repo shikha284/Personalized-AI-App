@@ -3,7 +3,7 @@ import base64
 from googleapiclient.discovery import build
 from email.message import EmailMessage
 import streamlit as st
-from zoom_utils import authenticate_google  # Google auth reused
+from auth_utils import authenticate_google  # ✅ FIXED: No circular import
 
 # ✅ Ensure groq is installed properly
 try:
@@ -28,7 +28,7 @@ except Exception as e:
 def call_llm(prompt: str) -> str:
     try:
         response = groq_client.chat.completions.create(
-            model="llama-3.3-70b-specdec",  # ✅ Official model name
+            model="llama-3.3-70b-specdec",
             messages=[{"role": "user", "content": prompt}]
         )
         return response.choices[0].message.content.strip()
