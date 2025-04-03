@@ -54,6 +54,8 @@ if st.session_state.step == "greet":
         normalized = user_input.lower()
         if "schedule" in normalized and "zoom" in normalized:
             st.session_state.step = "collect_zoom_info"
+        elif "summarize zoom" in normalized:
+            st.session_state.step = "summarize_meeting"
         elif "email" in normalized or "summarize" in normalized:
             st.session_state.step = "email_assistant"
         else:
@@ -89,15 +91,12 @@ if st.session_state.step == "collect_zoom_info":
         else:
             st.error("Please complete all fields.")
 
+    if st.button("🔙 Return to Main Menu"):
+        st.session_state.step = "greet"
+
 if st.session_state.step == "email_assistant":
     st.subheader("📧 Gmail AI Assistant")
-
-    email_action = st.selectbox("Choose Action", [
-        "Show Latest Email",
-        "Summarize Latest Email",
-        "Draft Reply"
-    ])
-
+    email_action = st.selectbox("Choose Action", ["Show Latest Email", "Summarize Latest Email", "Draft Reply"])
     start_time = time.time()
     email = fetch_latest_email()
 
@@ -118,7 +117,6 @@ if st.session_state.step == "email_assistant":
             st.subheader("✉️ Drafted Reply")
             reply = draft_reply(email, "Please reply professionally to this inquiry.")
             st.text_area("Reply Draft", reply, height=200)
-
             if st.button("✅ Send Reply"):
                 status = send_reply_email(reply, email)
                 st.success(status)
@@ -150,5 +148,5 @@ if st.session_state.step == "summarize_meeting":
             st.success(sentiment or "No sentiment detected.")
             st.caption(f"⏱️ Response Time: {response_time} seconds")
 
-    if st.button("🔙 Go Back"):
+    if st.button("🔙 Return to Main Menu"):
         st.session_state.step = "greet"
