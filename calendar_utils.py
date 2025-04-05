@@ -38,8 +38,7 @@ def load_credentials():
 
 def get_calendar_service():
     creds = load_credentials()
-    service = build('calendar', 'v3', credentials=creds)
-    return service
+    return build('calendar', 'v3', credentials=creds)
 
 def connect_to_db():
     try:
@@ -55,6 +54,10 @@ def fetch_task_embeddings():
     df = pd.read_sql("SELECT * FROM tasks_embeddings_shikha_20250326;", conn)
     df['due_datetime'] = pd.to_datetime(df['due_date'] + ' ' + df['due_time'])
     return df
+
+def get_task_df():
+    df = fetch_task_embeddings()
+    return df[['id', 'title', 'task_type', 'due_date', 'due_time', 'due_datetime']].sort_values(by='due_datetime')
 
 def list_events_today(service):
     tz = pytz.timezone('Asia/Kolkata')
@@ -83,6 +86,19 @@ def find_free_slot_today(service, duration_minutes=60):
             return current, slot_end
         current += timedelta(minutes=15)
     return None, None
+
+def suggest_task_slot_today(title: str, duration_minutes: int = 30):
+    service = get_calendar_service()
+    start, end = find_free_slot_today(service, duration_minutes)
+    if not start:
+        return "⚠️ No available slot for scheduling."
+    event = {
+        'summary': title,
+        'start': {'dateTime': start.isoformat(), 'timeZone': 'Asia/Kolkata'},
+        'end': {'dateTime': end.isoformat(), 'timeZone': 'Asia/Kolkata'}
+    }
+    created = service.events().insert(calendarId='primary', body=event).execute()
+    return f"✅ Suggested '{title}' at {start.strftime('%I:%M %p')} - {end.strftime('%I:%M %p')}"
 
 def schedule_doctor_appointment(service):
     start, end = find_free_slot_today(service)
@@ -116,4 +132,3 @@ def show_tasks_by_month(month: str):
         return "❌ No tasks found for that month."
     calendar_view = month_filtered[['due_datetime', 'title', 'task_type']].sort_values(by='due_datetime')
     return calendar_view
-
