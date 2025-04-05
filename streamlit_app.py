@@ -11,7 +11,7 @@ from zoom_utils import (
     get_transcripts,
     add_to_calendar
 )
-from eval_utils import g_eval, if_eval, halu_eval, truthful_qa_eval
+from eval_utils import g_eval, if_eval, halu_eval, truthful_qa_eval, q2_eval
 
 st.set_page_config(page_title="Shikha's Personalized AI Assistant", page_icon="🤖")
 st.title("🤖 Shikha's Personalized AI Assistant")
@@ -63,7 +63,7 @@ if st.session_state.step == "greet":
             st.warning("Try: 'schedule zoom meeting' or 'summarize email'.")
 
 if st.session_state.step == "collect_zoom_info":
-    st.subheader("📅 Schedule Zoom Meeting")
+    st.subheader("🗕️ Schedule Zoom Meeting")
     topic = st.text_input("Meeting Topic")
     date = st.date_input("Date")
     time_input = st.time_input("Time")
@@ -118,6 +118,8 @@ if st.session_state.step == "email_assistant":
                 st.code(g_eval(summary, reference=email["body"]))
                 st.markdown("**IFEval**")
                 st.code(if_eval(summary, source=email["body"]))
+                st.markdown("**Q² Evaluation**")
+                st.code(q2_eval(summary, reference=email["body"]))
 
         elif email_action == "Draft Reply":
             st.subheader("✉️ Drafted Reply")
@@ -167,7 +169,7 @@ if st.session_state.step == "summarize_meeting":
             summary, sentiment, response_time = summarize_meetings(filtered_df)
             st.markdown("### ✅ Summary")
             st.info(summary or "No summary generated.")
-            st.markdown("### 🗨️ Sentiment")
+            st.markdown("### 🔈 Sentiment")
             st.success(sentiment or "No sentiment detected.")
             st.caption(f"⏱️ Response Time: {response_time} seconds")
 
@@ -179,6 +181,8 @@ if st.session_state.step == "summarize_meeting":
                 st.code(if_eval(summary, source=joined_text))
                 st.markdown("**TruthfulQA - Sentiment**")
                 st.code(truthful_qa_eval(sentiment))
+                st.markdown("**Q² Evaluation**")
+                st.code(q2_eval(summary, reference=joined_text))
 
     if st.button("🔙 Return to Main Menu"):
         st.session_state.step = "greet"

@@ -70,6 +70,35 @@ Return a factual consistency judgment and highlight any hallucinated claims."""
         return response.choices[0].message.content.strip()
     except Exception as e:
         return f"❌ HALUeval failed: {e}"
+    
+def ifeval_score(output: str, source: str) -> str:
+    prompt = f"""
+You are evaluating whether the following AI-generated output is factually aligned with its source.
+
+### Source Text:
+{source}
+
+### Generated Output:
+{output}
+
+Rate the factual consistency on a scale of 1 to 5:
+- 5 = Completely factually correct and no hallucinations
+- 4 = Minor factual inconsistency, but mostly accurate
+- 3 = Some inconsistencies or unclear alignment
+- 2 = Noticeable hallucinations or contradictions
+- 1 = Completely misaligned or fabricated output
+
+Respond with a JSON object like:
+{{
+  "score": 4,
+  "rationale": "Minor mismatch in the phrasing of time, but rest is accurate."
+}}
+"""
+    response = groq_client.chat.completions.create(
+        model="llama-3.3-70b-specdec",
+        messages=[{"role": "user", "content": prompt}]
+    )
+    return response.choices[0].message.content.strip()
 
 # -------------------- TruthfulQA Style -------------------- #
 def truthful_qa_eval(output: str) -> str:
@@ -88,3 +117,27 @@ Return whether the response is factually accurate and explain any errors or misl
     except Exception as e:
         return f"❌ TruthfulQA eval failed: {e}"
 
+def q2_eval(summary: str, reference: str) -> str:
+    prompt = f"""
+You are a quality assurance evaluator.
+Evaluate this summary using Q² metric.
+### Reference (gold):
+{reference}
+
+### Summary (generated):
+{summary}
+
+Answer the following:
+1. Does the summary include all key info from reference? (Yes/No)
+2. Are there any inaccuracies or fabricated info? (Yes/No)
+3. Rate overall quality from 1 (poor) to 5 (excellent).
+4. Explain the score in 2-3 lines.
+
+Respond only in JSON:
+{{"key_info_included": "Yes", "factual": "Yes", "score": 4, "explanation": "Covers most key points and is mostly accurate."}}
+"""
+    response = groq_client.chat.completions.create(
+        model="llama-3.3-70b-specdec",
+        messages=[{"role": "user", "content": prompt}]
+    )
+    return response.choices[0].message.content.strip()
