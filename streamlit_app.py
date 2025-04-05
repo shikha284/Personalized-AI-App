@@ -9,12 +9,10 @@ from zoom_utils import (
     summarize_meetings,
     summarize_latest_meeting,
     get_transcripts,
-    add_to_calendar,
-    get_tasks_df,
-    suggest_task_time,
-    delete_last_task_today
+    add_to_calendar
 )
 from eval_utils import g_eval, if_eval, halu_eval, truthful_qa_eval, q2_eval
+from calendar_utils import suggest_task_slot_today, delete_last_task_today, get_task_df
 
 st.set_page_config(page_title="Shikha's Personalized AI Assistant", page_icon="🤖")
 st.title("🤖 Shikha's Personalized AI Assistant")
@@ -62,10 +60,10 @@ if st.session_state.step == "greet":
             st.session_state.step = "summarize_meeting"
         elif "email" in normalized or "summarize" in normalized:
             st.session_state.step = "email_assistant"
-        elif "task" in normalized or "calendar" in normalized:
-            st.session_state.step = "task_calendar_manager"
+        elif "calendar" in normalized or "task" in normalized:
+            st.session_state.step = "calendar_task"
         else:
-            st.warning("Try: 'schedule zoom meeting', 'summarize email', or 'view calendar tasks'.")
+            st.warning("Try: 'schedule zoom meeting', 'summarize email', or 'manage calendar'.")
 
 if st.session_state.step == "collect_zoom_info":
     st.subheader("🗕️ Schedule Zoom Meeting")
@@ -192,19 +190,16 @@ if st.session_state.step == "summarize_meeting":
     if st.button("🔙 Return to Main Menu"):
         st.session_state.step = "greet"
 
-if st.session_state.step == "task_calendar_manager":
-    st.subheader("📆 Task & Calendar Manager")
-    tasks = get_tasks_df()
-    st.dataframe(tasks.drop(columns=['title_embedding']), use_container_width=True)
+if st.session_state.step == "calendar_task":
+    st.subheader("🗓️ Calendar Task Manager")
+    df = get_task_df()
+    st.dataframe(df)
 
-    st.markdown("---")
-    st.markdown("### 🔍 Suggest Time for Doctor Appointment Today")
-    suggestion = suggest_task_time("Doctor Appointment")
-    st.success(suggestion)
+    if st.button("✨ Suggest Doctor Appointment Slot Today"):
+        msg = suggest_task_slot_today("Doctor Appointment", duration_minutes=30)
+        st.success(msg)
 
-    st.markdown("---")
-    st.markdown("### ❌ Delete Last Task Today")
-    if st.button("Delete"):
+    if st.button("🗑️ Delete Today's Last Task"):
         msg = delete_last_task_today()
         st.warning(msg)
 
