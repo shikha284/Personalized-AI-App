@@ -14,3 +14,4 @@ python-dateutil
 sendgrid
 zoomus
 html2text
+beautifulsoup4
