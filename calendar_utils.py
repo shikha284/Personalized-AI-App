@@ -4,11 +4,11 @@ from datetime import datetime, timedelta
 import pytz
 import pandas as pd
 from googleapiclient.discovery import build
-from google_auth_oauthlib.flow import InstalledAppFlow
 from google.auth.transport.requests import Request
 from dateutil import parser
 import streamlit as st
 import psycopg2
+from auth_utils import authenticate_google
 
 SCOPES = ['https://www.googleapis.com/auth/calendar']
 
@@ -20,24 +20,10 @@ DB_CONFIG = {
     "database": "mydatabase"
 }
 
-def load_credentials():
-    creds = None
-    if os.path.exists('token.pickle'):
-        with open('token.pickle', 'rb') as token:
-            creds = pickle.load(token)
-    if not creds or not creds.valid:
-        if creds and creds.expired and creds.refresh_token:
-            creds.refresh(Request())
-        else:
-            flow = InstalledAppFlow.from_client_secrets_file(
-                'calendar_credentials.json', SCOPES)
-            creds = flow.run_local_server(port=0)
-        with open('token.pickle', 'wb') as token:
-            pickle.dump(creds, token)
-    return creds
-
 def get_calendar_service():
-    creds = load_credentials()
+    creds = authenticate_google()
+    if not creds:
+        raise RuntimeError("❌ Google authentication failed.")
     return build('calendar', 'v3', credentials=creds)
 
 def connect_to_db():
@@ -97,10 +83,11 @@ def suggest_task_slot_today(title: str, duration_minutes: int = 30):
         'start': {'dateTime': start.isoformat(), 'timeZone': 'Asia/Kolkata'},
         'end': {'dateTime': end.isoformat(), 'timeZone': 'Asia/Kolkata'}
     }
-    created = service.events().insert(calendarId='primary', body=event).execute()
+    service.events().insert(calendarId='primary', body=event).execute()
     return f"✅ Suggested '{title}' at {start.strftime('%I:%M %p')} - {end.strftime('%I:%M %p')}"
 
-def schedule_doctor_appointment(service):
+def schedule_doctor_appointment():
+    service = get_calendar_service()
     start, end = find_free_slot_today(service)
     if not start:
         return None, None, "⚠️ No free slot available today."
@@ -109,7 +96,7 @@ def schedule_doctor_appointment(service):
         'start': {'dateTime': start.isoformat(), 'timeZone': 'Asia/Kolkata'},
         'end': {'dateTime': end.isoformat(), 'timeZone': 'Asia/Kolkata'}
     }
-    created = service.events().insert(calendarId='primary', body=event).execute()
+    service.events().insert(calendarId='primary', body=event).execute()
     return start, end, f"✅ Appointment scheduled from {start.strftime('%I:%M %p')} to {end.strftime('%I:%M %p')}"
 
 def delete_last_task_today():
@@ -124,6 +111,18 @@ def delete_last_task_today():
     cur.execute(f"DELETE FROM tasks_embeddings_shikha_20250326 WHERE id = {int(last_task_id)};")
     conn.commit()
     return f"🗑️ Task ID {int(last_task_id)} deleted."
+
+def delete_tasks_by_date(target_date):
+    df = fetch_task_embeddings()
+    delete_targets = df[df['due_datetime'].dt.date == target_date.date()]
+    if delete_targets.empty:
+        return "❌ No tasks found for the specified date."
+    conn = connect_to_db()
+    cur = conn.cursor()
+    ids = delete_targets['id'].tolist()
+    cur.execute(f"DELETE FROM tasks_embeddings_shikha_20250326 WHERE id = ANY(%s);", (ids,))
+    conn.commit()
+    return f"🗑️ Deleted {len(ids)} tasks scheduled on {target_date.strftime('%Y-%m-%d')}"
 
 def show_tasks_by_month(month: str):
     df = fetch_task_embeddings()
