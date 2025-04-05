@@ -1,6 +1,6 @@
 import streamlit as st
 import time
-from datetime import datetime
+from datetime import datetime, timedelta
 from gmail_utils import fetch_latest_email, summarize_email, draft_reply, send_reply_email
 from zoom_utils import (
     schedule_zoom_meeting,
@@ -9,7 +9,10 @@ from zoom_utils import (
     summarize_meetings,
     summarize_latest_meeting,
     get_transcripts,
-    add_to_calendar
+    add_to_calendar,
+    get_tasks_df,
+    suggest_task_time,
+    delete_last_task_today
 )
 from eval_utils import g_eval, if_eval, halu_eval, truthful_qa_eval, q2_eval
 
@@ -59,8 +62,10 @@ if st.session_state.step == "greet":
             st.session_state.step = "summarize_meeting"
         elif "email" in normalized or "summarize" in normalized:
             st.session_state.step = "email_assistant"
+        elif "task" in normalized or "calendar" in normalized:
+            st.session_state.step = "task_calendar_manager"
         else:
-            st.warning("Try: 'schedule zoom meeting' or 'summarize email'.")
+            st.warning("Try: 'schedule zoom meeting', 'summarize email', or 'view calendar tasks'.")
 
 if st.session_state.step == "collect_zoom_info":
     st.subheader("🗕️ Schedule Zoom Meeting")
@@ -183,6 +188,25 @@ if st.session_state.step == "summarize_meeting":
                 st.code(truthful_qa_eval(sentiment))
                 st.markdown("**Q² Evaluation**")
                 st.code(q2_eval(summary, reference=joined_text))
+
+    if st.button("🔙 Return to Main Menu"):
+        st.session_state.step = "greet"
+
+if st.session_state.step == "task_calendar_manager":
+    st.subheader("📆 Task & Calendar Manager")
+    tasks = get_tasks_df()
+    st.dataframe(tasks.drop(columns=['title_embedding']), use_container_width=True)
+
+    st.markdown("---")
+    st.markdown("### 🔍 Suggest Time for Doctor Appointment Today")
+    suggestion = suggest_task_time("Doctor Appointment")
+    st.success(suggestion)
+
+    st.markdown("---")
+    st.markdown("### ❌ Delete Last Task Today")
+    if st.button("Delete"):
+        msg = delete_last_task_today()
+        st.warning(msg)
 
     if st.button("🔙 Return to Main Menu"):
         st.session_state.step = "greet"
