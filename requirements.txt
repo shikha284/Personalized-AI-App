@@ -15,3 +15,4 @@ sendgrid
 zoomus
 html2text
 beautifulsoup4
+tavily-python
