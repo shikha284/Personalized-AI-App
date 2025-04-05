@@ -19,7 +19,7 @@ from calendar_utils import (
     show_tasks_by_month,
     get_task_df
 )
-from wb_utils import fetch_web_data, process_prompt_with_webdata, evaluate_web_response
+from web_utils import fetch_web_data, process_prompt_with_webdata, evaluate_web_response
 
 st.set_page_config(page_title="Shikha's Personalized AI Assistant", page_icon="🤖")
 st.title("🤖 Shikha's Personalized AI Assistant")
