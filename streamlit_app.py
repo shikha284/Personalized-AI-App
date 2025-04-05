@@ -19,6 +19,7 @@ from calendar_utils import (
     show_tasks_by_month,
     get_task_df
 )
+from wb_utils import fetch_web_data, process_prompt_with_webdata, evaluate_web_response
 
 st.set_page_config(page_title="Shikha's Personalized AI Assistant", page_icon="🤖")
 st.title("🤖 Shikha's Personalized AI Assistant")
@@ -68,8 +69,10 @@ if st.session_state.step == "greet":
             st.session_state.step = "email_assistant"
         elif "calendar" in normalized or "task" in normalized:
             st.session_state.step = "calendar_task"
+        elif "web" in normalized or "browse" in normalized:
+            st.session_state.step = "web_assistant"
         else:
-            st.warning("Try: 'schedule zoom meeting', 'summarize email', or 'manage calendar'.")
+            st.warning("Try: 'schedule zoom meeting', 'summarize email', 'manage calendar', or 'browse web'.")
 
 if st.session_state.step == "collect_zoom_info":
     st.subheader("🗕️ Schedule Zoom Meeting")
@@ -223,6 +226,24 @@ if st.session_state.step == "calendar_task":
             st.warning(cal_df)
         else:
             st.dataframe(cal_df)
+
+    if st.button("🔙 Return to Main Menu"):
+        st.session_state.step = "greet"
+
+if st.session_state.step == "web_assistant":
+    st.subheader("🌐 Web Data Assistant")
+    df_web = fetch_web_data()
+    st.dataframe(df_web.head())
+
+    web_query = st.text_area("🔍 Ask a question about your web data or the internet:")
+    if st.button("💬 Process Web Query") and web_query:
+        with st.spinner("Processing your prompt..."):
+            response = process_prompt_with_webdata(web_query, df_web)
+            st.success("✅ Response")
+            st.write(response)
+            st.subheader("📊 Evaluation")
+            eval_result = evaluate_web_response(web_query, response)
+            st.code(eval_result)
 
     if st.button("🔙 Return to Main Menu"):
         st.session_state.step = "greet"
