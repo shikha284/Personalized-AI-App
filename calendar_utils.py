@@ -78,26 +78,36 @@ def suggest_task_slot_today(title: str, duration_minutes: int = 30):
     start, end = find_free_slot_today(service, duration_minutes)
     if not start:
         return "⚠️ No available slot for scheduling."
-    event = {
-        'summary': title,
-        'start': {'dateTime': start.isoformat(), 'timeZone': 'Asia/Kolkata'},
-        'end': {'dateTime': end.isoformat(), 'timeZone': 'Asia/Kolkata'}
-    }
-    service.events().insert(calendarId='primary', body=event).execute()
-    return f"✅ Suggested '{title}' at {start.strftime('%I:%M %p')} - {end.strftime('%I:%M %p')}"
+
+    confirm = st.radio("Would you like to schedule this appointment?", ["Yes", "No"], horizontal=True)
+    if confirm == "Yes":
+        event = {
+            'summary': title,
+            'start': {'dateTime': start.isoformat(), 'timeZone': 'Asia/Kolkata'},
+            'end': {'dateTime': end.isoformat(), 'timeZone': 'Asia/Kolkata'}
+        }
+        service.events().insert(calendarId='primary', body=event).execute()
+        return f"✅ '{title}' scheduled at {start.strftime('%I:%M %p')} - {end.strftime('%I:%M %p')}"
+    else:
+        return f"🕐 Suggested time for '{title}' is {start.strftime('%I:%M %p')} - {end.strftime('%I:%M %p')} (Not Scheduled)"
 
 def schedule_doctor_appointment():
     service = get_calendar_service()
     start, end = find_free_slot_today(service)
     if not start:
         return None, None, "⚠️ No free slot available today."
-    event = {
-        'summary': 'Doctor Appointment',
-        'start': {'dateTime': start.isoformat(), 'timeZone': 'Asia/Kolkata'},
-        'end': {'dateTime': end.isoformat(), 'timeZone': 'Asia/Kolkata'}
-    }
-    service.events().insert(calendarId='primary', body=event).execute()
-    return start, end, f"✅ Appointment scheduled from {start.strftime('%I:%M %p')} to {end.strftime('%I:%M %p')}"
+
+    confirm = st.radio("Would you like to schedule the doctor appointment?", ["Yes", "No"], horizontal=True)
+    if confirm == "Yes":
+        event = {
+            'summary': 'Doctor Appointment',
+            'start': {'dateTime': start.isoformat(), 'timeZone': 'Asia/Kolkata'},
+            'end': {'dateTime': end.isoformat(), 'timeZone': 'Asia/Kolkata'}
+        }
+        created = service.events().insert(calendarId='primary', body=event).execute()
+        return start, end, f"✅ Appointment scheduled from {start.strftime('%I:%M %p')} to {end.strftime('%I:%M %p')}"
+    else:
+        return start, end, f"🕐 Suggested doctor appointment slot: {start.strftime('%I:%M %p')} - {end.strftime('%I:%M %p')} (Not Scheduled)"
 
 def delete_last_task_today():
     df = fetch_task_embeddings()

@@ -12,7 +12,13 @@ from zoom_utils import (
     add_to_calendar
 )
 from eval_utils import g_eval, if_eval, halu_eval, truthful_qa_eval, q2_eval
-from calendar_utils import suggest_task_slot_today, delete_last_task_today, get_task_df
+from calendar_utils import (
+    suggest_task_slot_today,
+    delete_last_task_today,
+    delete_tasks_by_date,
+    show_tasks_by_month,
+    get_task_df
+)
 
 st.set_page_config(page_title="Shikha's Personalized AI Assistant", page_icon="🤖")
 st.title("🤖 Shikha's Personalized AI Assistant")
@@ -202,6 +208,21 @@ if st.session_state.step == "calendar_task":
     if st.button("🗑️ Delete Today's Last Task"):
         msg = delete_last_task_today()
         st.warning(msg)
+
+    st.markdown("---")
+    st.subheader("📅 Additional Calendar Actions")
+    selected_date = st.date_input("📆 Choose a date to delete all tasks")
+    if st.button("❌ Delete Tasks on Selected Date"):
+        msg = delete_tasks_by_date(selected_date)
+        st.warning(msg)
+
+    month_input = st.text_input("📅 Enter month to view tasks (format: YYYY-MM)", value=datetime.now().strftime("%Y-%m"))
+    if st.button("📋 Show Monthly Calendar Tasks"):
+        cal_df = show_tasks_by_month(month_input)
+        if isinstance(cal_df, str):
+            st.warning(cal_df)
+        else:
+            st.dataframe(cal_df)
 
     if st.button("🔙 Return to Main Menu"):
         st.session_state.step = "greet"
