@@ -77,7 +77,7 @@ def search_web_with_tavily(prompt):
 def call_llm(prompt):
     try:
         response = groq_client.chat.completions.create(
-            model="llama3-70b-8192",
+            model="llama-3.3-70b-specdec",
             messages=[{"role": "user", "content": prompt}]
         )
         return response.choices[0].message.content.strip()
