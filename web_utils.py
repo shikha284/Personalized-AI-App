@@ -42,7 +42,7 @@ def fetch_web_data():
             df = pd.read_sql(query, conn)
             df['visittime'] = pd.to_datetime(df['visittime'], errors='coerce')
             df = df.dropna(subset=['visittime'])
-            df['visitDate'] = pd.to_datetime(df['visittime'], errors='coerce')
+            df['visitDate'] = pd.to_datetime(df['visittime'].dt.date)  # Ensure datetime64[ns] for .dt accessor
             return df
         except Exception as e:
             print(f"❌ Error reading data: {e}")
@@ -87,26 +87,29 @@ def call_llm(prompt):
 # === Web Prompt Processor ===
 def process_prompt_with_webdata(prompt, df):
     try:
+        if "shikha" in prompt.lower():
+            # Treat as internal vector DB query
+            if any(kw in prompt.lower() for kw in ["visit", "url", "page", "click", "link"]):
+                df_text = df[['visitDate', 'url', 'visitcount', 'cleaned_title']].astype(str).to_string(index=False)
+                prompt_embed = f"Here is Shikha's web browsing data:\n\n{df_text}\n\nAnswer the question: {prompt}"
+                return call_llm(prompt_embed)
+
+            month_match = re.search(r"(January|February|March|April|May|June|July|August|September|October|November|December)", prompt, re.IGNORECASE)
+            if month_match:
+                month = datetime.strptime(month_match.group(0), "%B").month
+                filtered = df[df["visitDate"].dt.month == month]
+                if not filtered.empty:
+                    top_url = filtered.sort_values("visitcount", ascending=False).iloc[0]["url"]
+                    content = extract_text_from_url(top_url)
+                    enriched = f"{prompt}\n\nTop visited site content:\n{content}"
+                    return call_llm(enriched)
+
+        # Default to Tavily for generic web search
         url_match = re.search(r"(https?://[^\s]+)", prompt)
         if url_match:
             content = extract_text_from_url(url_match.group(0))
             enriched_prompt = prompt.replace(url_match.group(0), f"\n\n{content}\n\n")
             return call_llm(enriched_prompt)
-
-        month_match = re.search(r"(January|February|March|April|May|June|July|August|September|October|November|December)", prompt, re.IGNORECASE)
-        if month_match:
-            month = datetime.strptime(month_match.group(0), "%B").month
-            filtered = df[df["visitDate"].dt.month == month]
-            if not filtered.empty:
-                top_url = filtered.sort_values("visitcount", ascending=False).iloc[0]["url"]
-                content = extract_text_from_url(top_url)
-                enriched = f"{prompt}\n\nTop visited site content:\n{content}"
-                return call_llm(enriched)
-
-        if any(kw in prompt.lower() for kw in ["visit", "url", "page", "click", "link"]):
-            df_text = df[['visitDate', 'url', 'visitcount', 'cleaned_title']].astype(str).to_string(index=False)
-            prompt_embed = f"Here is the web browsing dataset:\n\n{df_text}\n\nAnswer the question: {prompt}"
-            return call_llm(prompt_embed)
 
         content = search_web_with_tavily(prompt)
         enriched = f"Use the content to answer the question:\n{content}\n\nQuestion: {prompt}"

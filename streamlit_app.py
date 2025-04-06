@@ -1,4 +1,5 @@
 import streamlit as st
+import pandas as pd
 import time
 from datetime import datetime, timedelta
 from gmail_utils import fetch_latest_email, summarize_email, draft_reply, send_reply_email
