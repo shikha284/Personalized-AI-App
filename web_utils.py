@@ -42,7 +42,7 @@ def fetch_web_data():
             df = pd.read_sql(query, conn)
             df['visittime'] = pd.to_datetime(df['visittime'], errors='coerce')
             df = df.dropna(subset=['visittime'])
-            df['visitDate'] = df['visittime'].dt.date
+            df['visitDate'] = pd.to_datetime(df['visittime'], errors='coerce')
             return df
         except Exception as e:
             print(f"❌ Error reading data: {e}")
@@ -87,22 +87,30 @@ def call_llm(prompt):
 # === Web Prompt Processor ===
 def process_prompt_with_webdata(prompt, df):
     try:
-        prompt = prompt.strip()
-        print(f"🔍 Prompt received: {prompt}")
-
-        # --- Use Shikha’s VectorDB ---
-        if "shikha" in prompt.lower():
-            if df.empty:
-                return "⚠️ Shikha's web history is not available."
-            df_text = df[['visitDate', 'url', 'visitcount', 'cleaned_title']].astype(str).to_string(index=False)
-            enriched_prompt = f"You are analyzing Shikha's web history:\n\n{df_text}\n\nNow answer:\n{prompt}"
+        url_match = re.search(r"(https?://[^\s]+)", prompt)
+        if url_match:
+            content = extract_text_from_url(url_match.group(0))
+            enriched_prompt = prompt.replace(url_match.group(0), f"\n\n{content}\n\n")
             return call_llm(enriched_prompt)
 
-        # --- Fallback to Tavily Web Search ---
-        else:
-            content = search_web_with_tavily(prompt)
-            enriched = f"Use the content to answer the question:\n{content}\n\nQuestion: {prompt}"
-            return call_llm(enriched)
+        month_match = re.search(r"(January|February|March|April|May|June|July|August|September|October|November|December)", prompt, re.IGNORECASE)
+        if month_match:
+            month = datetime.strptime(month_match.group(0), "%B").month
+            filtered = df[df["visitDate"].dt.month == month]
+            if not filtered.empty:
+                top_url = filtered.sort_values("visitcount", ascending=False).iloc[0]["url"]
+                content = extract_text_from_url(top_url)
+                enriched = f"{prompt}\n\nTop visited site content:\n{content}"
+                return call_llm(enriched)
+
+        if any(kw in prompt.lower() for kw in ["visit", "url", "page", "click", "link"]):
+            df_text = df[['visitDate', 'url', 'visitcount', 'cleaned_title']].astype(str).to_string(index=False)
+            prompt_embed = f"Here is the web browsing dataset:\n\n{df_text}\n\nAnswer the question: {prompt}"
+            return call_llm(prompt_embed)
+
+        content = search_web_with_tavily(prompt)
+        enriched = f"Use the content to answer the question:\n{content}\n\nQuestion: {prompt}"
+        return call_llm(enriched)
 
     except Exception as e:
         return f"❌ Error processing prompt: {e}"
@@ -131,8 +139,8 @@ H-Eval: <Yes/No> - <reason>
 # === Top Visited Websites (Generic by Month & Year) ===
 def top_visited_websites(df, year, month, top_n=5):
     try:
-        df_filtered = df[df['visitDate'].apply(lambda x: x.month == month and x.year == year)]
-        top_sites = df_filtered.groupby('url')['visitcount'].sum().reset_index()
+        filtered = df[(df['visitDate'].dt.month == month) & (df['visitDate'].dt.year == year)]
+        top_sites = filtered.groupby('url')['visitcount'].sum().reset_index()
         top_sites = top_sites.sort_values(by='visitcount', ascending=False).head(top_n)
         return top_sites
     except Exception as e:
