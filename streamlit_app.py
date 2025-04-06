@@ -266,7 +266,7 @@ if st.session_state.step == "web_insights":
             st.markdown("### 🤖 Ask Anything from Shikha's History")
             colq1, colq2 = st.columns([5, 1])
             with colq1:
-                shikha_query = st.text_input("Ask using her name to trigger vector DB", key="shikha_query")
+                shikha_query = st.text_input("Ask questions", key="shikha_query")
             with colq2:
                 ask_shikha = st.button("🧠 Ask", key="ask_shikha")
 
