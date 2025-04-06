@@ -87,39 +87,20 @@ def call_llm(prompt):
 # === Web Prompt Processor ===
 def process_prompt_with_webdata(prompt, df):
     try:
-        # 🧠 Route based on intent: personal (Shikha) vs internet
-        personal_keywords = ["shikha", "my", "my browsing", "my web", "visited by me", "personal history"]
-        if any(pk in prompt.lower() for pk in personal_keywords):
-            # Use VectorDB (your personal web history)
-            if df.empty:
-                return "⚠️ No personal browsing history available to answer this."
-
-            month_match = re.search(r"(January|February|March|April|May|June|July|August|September|October|November|December)", prompt, re.IGNORECASE)
-            year_match = re.search(r"(20\d{2})", prompt)
-
-            if month_match and year_match:
-                month = datetime.strptime(month_match.group(0), "%B").month
-                year = int(year_match.group(0))
-                top_sites = top_visited_websites(df, year, month)
-                if isinstance(top_sites, str):
-                    return top_sites
-                if top_sites.empty:
-                    return f"No data for {month_match.group(0)} {year}"
-                return f"📊 Top visited websites by Shikha in {month_match.group(0)} {year}:\n\n" + top_sites.to_string(index=False)
-
-            # Else full-table summarization
+        # If prompt contains Shikha or top visited, treat as vectordb query
+        if "shikha" in prompt.lower() or "top visited" in prompt.lower():
             df_text = df[['visitDate', 'url', 'visitcount', 'cleaned_title']].astype(str).to_string(index=False)
-            prompt_embed = f"Here is Shikha's web browsing dataset:\n\n{df_text}\n\nAnswer the question: {prompt}"
-            return call_llm(prompt_embed)
+            vectordb_prompt = f"Browsing data for Shikha:\n\n{df_text}\n\nNow answer:\n{prompt}"
+            return call_llm(vectordb_prompt)
 
-        # 🌐 Fallback: public web search via Tavily
+        # If prompt has a URL
         url_match = re.search(r"(https?://[^\s]+)", prompt)
         if url_match:
             content = extract_text_from_url(url_match.group(0))
             enriched_prompt = prompt.replace(url_match.group(0), f"\n\n{content}\n\n")
             return call_llm(enriched_prompt)
 
-        # General web search
+        # Otherwise fallback to web search
         content = search_web_with_tavily(prompt)
         enriched = f"Use the content to answer the question:\n{content}\n\nQuestion: {prompt}"
         return call_llm(enriched)
@@ -151,30 +132,9 @@ H-Eval: <Yes/No> - <reason>
 # === Top Visited Websites (Generic by Month & Year) ===
 def top_visited_websites(df, year, month, top_n=5):
     try:
-        # Ensure 'visitDate' is datetime
-        if df['visitDate'].dtype != 'datetime64[ns]':
-            df['visitDate'] = pd.to_datetime(df['visitDate'], errors='coerce')
-
-        # Filter for the selected year and month
-        df_filtered = df[
-            (df['visitDate'].dt.year == year) &
-            (df['visitDate'].dt.month == month)
-        ]
-
-        if df_filtered.empty:
-            return pd.DataFrame()  # Let UI handle the "no data" message
-
-        # Group by URL and sum visitcounts
-        top_sites = (
-            df_filtered.groupby(['url'])
-            .agg({'visitcount': 'sum'})
-            .reset_index()
-            .sort_values(by='visitcount', ascending=False)
-            .head(top_n)
-        )
-
+        df_filtered = df[df['visitDate'].apply(lambda x: x.month == month and x.year == year)]
+        top_sites = df_filtered.groupby(['url', 'cleaned_title'])['visitcount'].sum().reset_index()
+        top_sites = top_sites.sort_values(by='visitcount', ascending=False).head(top_n)
         return top_sites
-
     except Exception as e:
         return f"❌ Error retrieving top sites: {e}"
-

@@ -238,25 +238,16 @@ if st.session_state.step == "web_insights":
     if df_web.empty:
         st.error("⚠️ No web visit data available.")
     else:
-        st.markdown("#### 📅 Filter for Monthly Website Activity")
+        st.markdown("### 🧠 Ask from Shikha's Web History (VectorDB)")
         col1, col2 = st.columns(2)
-
         with col1:
-            selected_year = st.selectbox(
-                "Select Year",
-                sorted(df_web['visitDate'].dt.year.unique(), reverse=True),
-                index=0
-            )
-
+            selected_year = st.selectbox("Select Year", sorted(df_web['visitDate'].dt.year.unique(), reverse=True))
         with col2:
             selected_month = st.selectbox(
                 "Select Month",
-                [
-                    ("January", 1), ("February", 2), ("March", 3), ("April", 4), ("May", 5),
-                    ("June", 6), ("July", 7), ("August", 8), ("September", 9), ("October", 10),
-                    ("November", 11), ("December", 12)
-                ],
-                index=1,
+                [("January", 1), ("February", 2), ("March", 3), ("April", 4), ("May", 5),
+                 ("June", 6), ("July", 7), ("August", 8), ("September", 9),
+                 ("October", 10), ("November", 11), ("December", 12)],
                 format_func=lambda x: x[0]
             )
 
@@ -271,23 +262,26 @@ if st.session_state.step == "web_insights":
                 st.dataframe(top_sites)
 
         st.markdown("---")
-        st.subheader("💬 Ask a Question")
+        st.subheader("💬 Ask a Question about Shikha's Browsing Data")
+        vectordb_query = st.text_input("📁 VectorDB Query (e.g. 'top visited by shikha')")
+        if st.button("📥 Process VectorDB Query"):
+            if vectordb_query:
+                response = process_prompt_with_webdata(vectordb_query + " by shikha", df_web)
+                st.success(response)
+                if st.checkbox("🧪 Show Evaluation", key="eval_vectordb"):
+                    eval = evaluate_web_response(vectordb_query, response)
+                    st.code(eval)
 
-        colq1, colq2 = st.columns([5, 1])
-        with colq1:
-            user_prompt = st.text_input("Question (e.g., top visited by Shikha, or any web query)")
-        with colq2:
-            run_query = st.button("🔍 Ask")
-
-        if run_query and user_prompt:
-            response = process_prompt_with_webdata(user_prompt, df_web)
-            st.markdown("### 🤖 Response")
-            st.success(response)
-
-            if st.checkbox("🧪 Show Evaluation"):
-                evaluation = evaluate_web_response(user_prompt, response)
-                st.markdown("### 📊 Evaluation")
-                st.code(evaluation)
+        st.markdown("---")
+        st.subheader("🌍 Ask a General Web Search Question")
+        web_query = st.text_input("🌐 Web Search Query (e.g. 'latest AI tools')")
+        if st.button("🌎 Process Web Search"):
+            if web_query:
+                response = process_prompt_with_webdata(web_query, pd.DataFrame())
+                st.success(response)
+                if st.checkbox("🧪 Show Evaluation", key="eval_websearch"):
+                    eval = evaluate_web_response(web_query, response)
+                    st.code(eval)
 
     if st.button("🔙 Return to Main Menu"):
         st.session_state.step = "greet"
