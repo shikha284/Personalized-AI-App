@@ -272,11 +272,13 @@ if st.session_state.step == "web_insights":
 
             if ask_shikha and shikha_query:
                 with st.spinner("Thinking..."):
-                    response, time_taken = process_prompt_with_webdata(shikha_query, df_web)
+                    response, duration = process_prompt_with_webdata(shikha_query, df_web)
                     st.success(response)
-                    st.caption(f"⏱️ Response Time: {time_taken} seconds")
+                    st.caption(f"⏱️ Response Time: {duration} seconds")
+
                     if st.checkbox("🧪 Evaluate", key="eval_shikha"):
                         result = evaluate_web_response(shikha_query, response)
+                        st.markdown("### 📊 Evaluation")
                         st.code(result)
 
         with tab2:
