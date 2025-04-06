@@ -139,9 +139,30 @@ H-Eval: <Yes/No> - <reason>
 # === Top Visited Websites (Generic by Month & Year) ===
 def top_visited_websites(df, year, month, top_n=5):
     try:
-        df_filtered = df[df['visitDate'].apply(lambda x: x.month == month and x.year == year)]
-        top_sites = df_filtered.groupby('url')['visitcount'].sum().reset_index()
-        top_sites = top_sites.sort_values(by='visitcount', ascending=False).head(top_n)
+        # Ensure 'visitDate' is datetime
+        if df['visitDate'].dtype != 'datetime64[ns]':
+            df['visitDate'] = pd.to_datetime(df['visitDate'], errors='coerce')
+
+        # Filter for the selected year and month
+        df_filtered = df[
+            (df['visitDate'].dt.year == year) &
+            (df['visitDate'].dt.month == month)
+        ]
+
+        if df_filtered.empty:
+            return pd.DataFrame()  # Let UI handle the "no data" message
+
+        # Group by URL and sum visitcounts
+        top_sites = (
+            df_filtered.groupby(['url'])
+            .agg({'visitcount': 'sum'})
+            .reset_index()
+            .sort_values(by='visitcount', ascending=False)
+            .head(top_n)
+        )
+
         return top_sites
+
     except Exception as e:
         return f"❌ Error retrieving top sites: {e}"
+

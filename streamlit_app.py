@@ -238,24 +238,41 @@ if st.session_state.step == "web_insights":
     if df_web.empty:
         st.error("⚠️ No web visit data available.")
     else:
-        selected_year = st.selectbox("Select Year", sorted(df_web['visitDate'].dt.year.unique(), reverse=True))
-        selected_month = st.selectbox("Select Month", [
-            ("January", 1), ("February", 2), ("March", 3), ("April", 4), ("May", 5), ("June", 6),
-            ("July", 7), ("August", 8), ("September", 9), ("October", 10), ("November", 11), ("December", 12)
-        ], format_func=lambda x: x[0])
+        st.markdown("#### 📅 Filter for Monthly Website Activity")
+        col1, col2 = st.columns(2)
 
-        if st.button("📊 Show Top Visited Websites"):
+        with col1:
+            selected_year = st.selectbox(
+                "Select Year",
+                sorted(df_web['visitDate'].dt.year.unique(), reverse=True),
+                index=0
+            )
+
+        with col2:
+            selected_month = st.selectbox(
+                "Select Month",
+                [
+                    ("January", 1), ("February", 2), ("March", 3), ("April", 4), ("May", 5),
+                    ("June", 6), ("July", 7), ("August", 8), ("September", 9), ("October", 10),
+                    ("November", 11), ("December", 12)
+                ],
+                index=1,  # Default to February
+                format_func=lambda x: x[0]
+            )
+
+        if st.button("📊 Show Top 5 Visited Websites"):
             top_sites = top_visited_websites(df_web, selected_year, selected_month[1])
             if isinstance(top_sites, str):
                 st.warning(top_sites)
             elif top_sites.empty:
-                st.info("No data found for this month/year.")
+                st.info(f"No visit data for {selected_month[0]} {selected_year}.")
             else:
+                st.markdown(f"### 🔝 Top 5 Most Visited Websites in **{selected_month[0]} {selected_year}**")
                 st.dataframe(top_sites)
 
         st.markdown("---")
-        st.subheader("💬 Ask a Question about Browsing History")
-        user_prompt = st.text_input("Enter your question:")
+        st.subheader("💬 Ask a Question about Web Activity")
+        user_prompt = st.text_input("Enter your question about web browsing or the internet:")
         if user_prompt:
             response = process_prompt_with_webdata(user_prompt, df_web)
             st.markdown("### 🤖 Response")
