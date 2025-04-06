@@ -272,10 +272,15 @@ if st.session_state.step == "web_insights":
 
             if ask_shikha and shikha_query:
                 with st.spinner("Thinking..."):
+                    start = time.time()
                     response = process_prompt_with_webdata(shikha_query, df_web)
+                    end = time.time()
                     st.success(response)
+                    st.caption(f"⏱️ Response Time: {round(end - start, 2)} seconds")
+
                     if st.checkbox("🧪 Evaluate", key="eval_shikha"):
                         result = evaluate_web_response(shikha_query, response)
+                        st.markdown("### 📊 Evaluation")
                         st.code(result)
 
         with tab2:
@@ -288,10 +293,15 @@ if st.session_state.step == "web_insights":
 
             if run_search and search_query:
                 with st.spinner("Fetching from the web..."):
+                    start = time.time()
                     response = process_prompt_with_webdata(search_query, pd.DataFrame())
+                    end = time.time()
                     st.success(response)
+                    st.caption(f"⏱️ Response Time: {round(end - start, 2)} seconds")
+
                     if st.checkbox("🧪 Evaluate", key="eval_web"):
                         result = evaluate_web_response(search_query, response)
+                        st.markdown("### 📊 Evaluation")
                         st.code(result)
 
     if st.button("🔙 Return to Main Menu"):
