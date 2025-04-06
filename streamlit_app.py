@@ -1,4 +1,3 @@
-st.cache_data.clear()
 import streamlit as st
 import time
 from datetime import datetime, timedelta
@@ -21,7 +20,7 @@ from calendar_utils import (
     get_task_df
 )
 from web_utils import fetch_web_data, process_prompt_with_webdata, evaluate_web_response, top_visited_websites
-
+st.cache_data.clear()
 
 st.set_page_config(page_title="Shikha's Personalized AI Assistant", page_icon="🤖")
 st.title("🤖 Shikha's Personalized AI Assistant")
