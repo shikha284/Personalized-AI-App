@@ -42,7 +42,7 @@ def fetch_web_data():
             df = pd.read_sql(query, conn)
             df['visittime'] = pd.to_datetime(df['visittime'], errors='coerce')
             df = df.dropna(subset=['visittime'])
-            df['visitDate'] = pd.to_datetime(df['visittime'].dt.date)  # Ensure datetime64[ns] for .dt accessor
+            df['visitDate'] = pd.to_datetime(df['visittime'].dt.date)
             return df
         except Exception as e:
             print(f"❌ Error reading data: {e}")
@@ -88,23 +88,8 @@ def call_llm(prompt):
 def process_prompt_with_webdata(prompt, df):
     try:
         if "shikha" in prompt.lower():
-            # Treat as internal vector DB query
-            if any(kw in prompt.lower() for kw in ["visit", "url", "page", "click", "link"]):
-                df_text = df[['visitDate', 'url', 'visitcount', 'cleaned_title']].astype(str).to_string(index=False)
-                prompt_embed = f"Here is Shikha's web browsing data:\n\n{df_text}\n\nAnswer the question: {prompt}"
-                return call_llm(prompt_embed)
+            return process_prompt_with_df(prompt, df)
 
-            month_match = re.search(r"(January|February|March|April|May|June|July|August|September|October|November|December)", prompt, re.IGNORECASE)
-            if month_match:
-                month = datetime.strptime(month_match.group(0), "%B").month
-                filtered = df[df["visitDate"].dt.month == month]
-                if not filtered.empty:
-                    top_url = filtered.sort_values("visitcount", ascending=False).iloc[0]["url"]
-                    content = extract_text_from_url(top_url)
-                    enriched = f"{prompt}\n\nTop visited site content:\n{content}"
-                    return call_llm(enriched)
-
-        # Default to Tavily for generic web search
         url_match = re.search(r"(https?://[^\s]+)", prompt)
         if url_match:
             content = extract_text_from_url(url_match.group(0))
@@ -117,6 +102,44 @@ def process_prompt_with_webdata(prompt, df):
 
     except Exception as e:
         return f"❌ Error processing prompt: {e}"
+
+# ✅ Shikha Web History Prompt Processor
+def process_prompt_with_df(prompt, df):
+    try:
+        url_match = re.search(r"(https?://[^\s]+)", prompt)
+        if url_match:
+            url = url_match.group(0)
+            content = extract_text_from_url(url)
+            enriched_prompt = prompt.replace(url, f"\n\n{content}\n\n")
+            return call_llm(enriched_prompt)
+
+        if any(kw in prompt.lower() for kw in ["most visited", "visitcount", "summarize", "visited website"]):
+            date_match = re.search(r"(January|February|March|April|May|June|July|August|September|October|November|December)", prompt, re.IGNORECASE)
+            if date_match:
+                try:
+                    df["visitDate"] = pd.to_datetime(df["visitDate"])
+                    month_number = datetime.strptime(date_match.group(0), "%B").month
+                    filtered = df[df["visitDate"].dt.month == month_number]
+                    if not filtered.empty:
+                        top_url = filtered.sort_values("visitcount", ascending=False)["url"].iloc[0]
+                        content = extract_text_from_url(top_url)
+                        prompt_with_url = f"{prompt}\n\nTop visited page content:\n{content}\n\n"
+                        return call_llm(prompt_with_url)
+                except Exception as e:
+                    print(f"⚠️ Month parsing error: {e}")
+
+        if any(word in prompt.lower() for word in ["visit", "url", "title", "page", "click", "website", "link"]):
+            df_text = df[["visitDate", "url", "visitcount", "cleaned_title"]].astype(str).to_string(index=False)
+            full_prompt = f"You are a smart assistant. Here is some web visit data:\n\n{df_text}\n\nNow answer:\n{prompt}"
+            return call_llm(full_prompt)
+
+        print("🌐 Prompt seems unrelated to dataset. Using Tavily for web search...")
+        web_content = search_web_with_tavily(prompt)
+        final_prompt = f"Based on this web search result, answer the query:\n\n{web_content}\n\nQuestion: {prompt}"
+        return call_llm(final_prompt)
+
+    except Exception as e:
+        return f"❌ Error processing Shikha prompt: {e}"
 
 # === Web Evaluation ===
 def evaluate_web_response(user_prompt, llm_response):
@@ -143,10 +166,7 @@ H-Eval: <Yes/No> - <reason>
 def top_visited_websites(df, year, month, top_n=5):
     try:
         filtered = df[(df['visitDate'].dt.month == month) & (df['visitDate'].dt.year == year)]
-        
-        # 🛠️ Ensure visitcount is numeric
         filtered['visitcount'] = pd.to_numeric(filtered['visitcount'], errors='coerce').fillna(0).astype(int)
-
         top_sites = filtered.groupby('url')['visitcount'].sum().reset_index()
         top_sites = top_sites.sort_values(by='visitcount', ascending=False).head(top_n)
         return top_sites
