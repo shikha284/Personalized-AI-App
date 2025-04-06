@@ -238,9 +238,9 @@ if st.session_state.step == "web_insights":
     if df_web.empty:
         st.error("⚠️ No web visit data available.")
     else:
+        # --- Top Sites Filter UI ---
         st.markdown("#### 📅 Filter for Monthly Website Activity")
         col1, col2 = st.columns(2)
-
         with col1:
             selected_year = st.selectbox("Select Year", sorted(df_web['visitDate'].dt.year.unique(), reverse=True))
         with col2:
@@ -262,40 +262,36 @@ if st.session_state.step == "web_insights":
                 st.dataframe(top_sites)
 
         st.markdown("---")
+        # --- Vector DB QA UI ---
         st.subheader("💬 Ask from Shikha's Web History")
-
         colq1, colq2 = st.columns([5, 1])
         with colq1:
-            shikha_query = st.text_input("Ask a question about Shikha's browsing history (mention 'Shikha' in prompt):")
+            shikha_query = st.text_input("Ask a question (mention 'Shikha' to use her browsing data):")
         with colq2:
-            query_btn = st.button("🧠 Ask from History")
+            shikha_btn = st.button("🧠 Ask from History")
 
-        if query_btn and shikha_query:
-            st.markdown("#### 🤖 Response from Shikha's History")
-            result = process_prompt_with_webdata(shikha_query, df_web)
-            st.success(result)
-
-            if st.checkbox("🧪 Show Evaluation for History"):
-                st.markdown("### 📊 Evaluation")
-                st.code(evaluate_web_response(shikha_query, result))
-
-        st.markdown("---")
-        st.subheader("🌐 Ask the Web via Tavily Search")
-
-        col_ext_1, col_ext_2 = st.columns([5, 1])
-        with col_ext_1:
-            generic_web_prompt = st.text_input("Ask a question on the internet (avoid using 'Shikha' here):")
-        with col_ext_2:
-            websearch_btn = st.button("🌍 Web Search")
-
-        if websearch_btn and generic_web_prompt:
-            st.markdown("#### 🌐 Web Search Result")
-            response = process_prompt_with_webdata(generic_web_prompt, pd.DataFrame())
+        if shikha_btn and shikha_query:
+            response = process_prompt_with_webdata(shikha_query, df_web)
+            st.markdown("### 🤖 Response")
             st.success(response)
 
-            if st.checkbox("🧪 Show Evaluation for Web Search"):
+            if st.checkbox("🧪 Show Evaluation"):
                 st.markdown("### 📊 Evaluation")
-                st.code(evaluate_web_response(generic_web_prompt, response))
+                st.code(evaluate_web_response(shikha_query, response))
+
+        st.markdown("---")
+        # --- External Search UI ---
+        st.subheader("🌐 Ask via External Web Search")
+        web_prompt_col1, web_prompt_col2 = st.columns([5, 1])
+        with web_prompt_col1:
+            web_prompt = st.text_input("Search the web (exclude 'Shikha' to use real web data):")
+        with web_prompt_col2:
+            websearch_btn = st.button("🌍 Search the Web")
+
+        if websearch_btn and web_prompt:
+            response = process_prompt_with_webdata(web_prompt, pd.DataFrame())  # empty triggers Tavily
+            st.markdown("### 🌐 Web Result")
+            st.success(response)
 
     if st.button("🔙 Return to Main Menu"):
         st.session_state.step = "greet"
