@@ -19,7 +19,8 @@ from calendar_utils import (
     show_tasks_by_month,
     get_task_df
 )
-from web_utils import fetch_web_data, process_prompt_with_webdata, evaluate_web_response
+from web_utils import fetch_web_data, process_prompt_with_webdata, evaluate_web_response, top_visited_websites
+
 
 st.set_page_config(page_title="Shikha's Personalized AI Assistant", page_icon="🤖")
 st.title("🤖 Shikha's Personalized AI Assistant")
@@ -70,9 +71,9 @@ if st.session_state.step == "greet":
         elif "calendar" in normalized or "task" in normalized:
             st.session_state.step = "calendar_task"
         elif "web" in normalized or "browse" in normalized:
-            st.session_state.step = "web_assistant"
+            st.session_state.step = "web_insights"
         else:
-            st.warning("Try: 'schedule zoom meeting', 'summarize email', 'manage calendar', or 'browse web'.")
+            st.warning("Try: 'schedule zoom meeting', 'summarize email', 'manage calendar', or 'web_insights'.")
 
 if st.session_state.step == "collect_zoom_info":
     st.subheader("🗕️ Schedule Zoom Meeting")
@@ -230,20 +231,40 @@ if st.session_state.step == "calendar_task":
     if st.button("🔙 Return to Main Menu"):
         st.session_state.step = "greet"
 
-if st.session_state.step == "web_assistant":
-    st.subheader("🌐 Web Data Assistant")
+if st.session_state.step == "web_insights":
+    st.subheader("🌐 Web Insights from Browsing History")
     df_web = fetch_web_data()
-    st.dataframe(df_web.head())
 
-    web_query = st.text_area("🔍 Ask a question about your web data or the internet:")
-    if st.button("💬 Process Web Query") and web_query:
-        with st.spinner("Processing your prompt..."):
-            response = process_prompt_with_webdata(web_query, df_web)
-            st.success("✅ Response")
-            st.write(response)
-            st.subheader("📊 Evaluation")
-            eval_result = evaluate_web_response(web_query, response)
-            st.code(eval_result)
+    if df_web.empty:
+        st.error("⚠️ No web visit data available.")
+    else:
+        selected_year = st.selectbox("Select Year", sorted(df_web['visitDate'].dt.year.unique(), reverse=True))
+        selected_month = st.selectbox("Select Month", [
+            ("January", 1), ("February", 2), ("March", 3), ("April", 4), ("May", 5), ("June", 6),
+            ("July", 7), ("August", 8), ("September", 9), ("October", 10), ("November", 11), ("December", 12)
+        ], format_func=lambda x: x[0])
+
+        if st.button("📊 Show Top Visited Websites"):
+            top_sites = top_visited_websites(df_web, selected_year, selected_month[1])
+            if isinstance(top_sites, str):
+                st.warning(top_sites)
+            elif top_sites.empty:
+                st.info("No data found for this month/year.")
+            else:
+                st.dataframe(top_sites)
+
+        st.markdown("---")
+        st.subheader("💬 Ask a Question about Browsing History")
+        user_prompt = st.text_input("Enter your question:")
+        if user_prompt:
+            response = process_prompt_with_webdata(user_prompt, df_web)
+            st.markdown("### 🤖 Response")
+            st.success(response)
+
+            if st.checkbox("🧪 Show Evaluation"):
+                evaluation = evaluate_web_response(user_prompt, response)
+                st.markdown("### 📊 Evaluation")
+                st.code(evaluation)
 
     if st.button("🔙 Return to Main Menu"):
         st.session_state.step = "greet"

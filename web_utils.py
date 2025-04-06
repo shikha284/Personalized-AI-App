@@ -96,7 +96,7 @@ def process_prompt_with_webdata(prompt, df):
         month_match = re.search(r"(January|February|March|April|May|June|July|August|September|October|November|December)", prompt, re.IGNORECASE)
         if month_match:
             month = datetime.strptime(month_match.group(0), "%B").month
-            filtered = df[df["visitDate"].apply(lambda x: x.month) == month]
+            filtered = df[df["visitDate"].apply(lambda x: x.month == month)]
             if not filtered.empty:
                 top_url = filtered.sort_values("visitcount", ascending=False).iloc[0]["url"]
                 content = extract_text_from_url(top_url)
@@ -135,3 +135,13 @@ G-Eval: <score>/10
 H-Eval: <Yes/No> - <reason>
 """
     return call_llm(eval_prompt)
+
+# === Top Visited Websites (Generic by Month & Year) ===
+def top_visited_websites(df, year, month, top_n=5):
+    try:
+        df_filtered = df[df['visitDate'].apply(lambda x: x.month == month and x.year == year)]
+        top_sites = df_filtered.groupby('url')['visitcount'].sum().reset_index()
+        top_sites = top_sites.sort_values(by='visitcount', ascending=False).head(top_n)
+        return top_sites
+    except Exception as e:
+        return f"❌ Error retrieving top sites: {e}"
