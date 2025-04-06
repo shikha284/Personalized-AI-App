@@ -274,14 +274,30 @@ if st.session_state.step == "web_insights":
         st.subheader("💬 Ask a Question about Web Activity")
         user_prompt = st.text_input("Enter your question about web browsing or the internet:")
         if user_prompt:
-            response = process_prompt_with_webdata(user_prompt, df_web)
-            st.markdown("### 🤖 Response")
-            st.success(response)
+            # Check for automatic top visited query
+            if "top" in user_prompt.lower() and "visited" in user_prompt.lower() and "web" in user_prompt.lower():
+                if "february 2025" in user_prompt.lower():
+                    auto_sites = top_visited_websites(df_web, 2025, 2)
+                    st.markdown("### 📌 Auto Query Result: Top 5 Visited Websites in February 2025")
+                    st.dataframe(auto_sites)
+                else:
+                    response = process_prompt_with_webdata(user_prompt, df_web)
+                    st.markdown("### 🤖 Response")
+                    st.success(response)
 
-            if st.checkbox("🧪 Show Evaluation"):
-                evaluation = evaluate_web_response(user_prompt, response)
-                st.markdown("### 📊 Evaluation")
-                st.code(evaluation)
+                    if st.checkbox("🧪 Show Evaluation"):
+                        evaluation = evaluate_web_response(user_prompt, response)
+                        st.markdown("### 📊 Evaluation")
+                        st.code(evaluation)
+            else:
+                response = process_prompt_with_webdata(user_prompt, df_web)
+                st.markdown("### 🤖 Response")
+                st.success(response)
+
+                if st.checkbox("🧪 Show Evaluation"):
+                    evaluation = evaluate_web_response(user_prompt, response)
+                    st.markdown("### 📊 Evaluation")
+                    st.code(evaluation)
 
     if st.button("🔙 Return to Main Menu"):
         st.session_state.step = "greet"
