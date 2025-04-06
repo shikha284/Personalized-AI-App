@@ -143,6 +143,10 @@ H-Eval: <Yes/No> - <reason>
 def top_visited_websites(df, year, month, top_n=5):
     try:
         filtered = df[(df['visitDate'].dt.month == month) & (df['visitDate'].dt.year == year)]
+        
+        # 🛠️ Ensure visitcount is numeric
+        filtered['visitcount'] = pd.to_numeric(filtered['visitcount'], errors='coerce').fillna(0).astype(int)
+
         top_sites = filtered.groupby('url')['visitcount'].sum().reset_index()
         top_sites = top_sites.sort_values(by='visitcount', ascending=False).head(top_n)
         return top_sites
