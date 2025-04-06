@@ -129,14 +129,14 @@ def process_prompt_with_webdata(prompt, df):
         if url_match:
             content = extract_text_from_url(url_match.group(0))
             enriched_prompt = prompt.replace(url_match.group(0), f"\n\n{content}\n\n")
-            return call_llm(enriched_prompt)[0]
+            return call_llm(enriched_prompt)
 
         content = search_web_with_tavily(prompt)
         enriched = f"Use the content to answer the question:\n{content}\n\nQuestion: {prompt}"
-        return call_llm(enriched)[0]
+        return call_llm(enriched)
 
     except Exception as e:
-        return f"❌ Error processing prompt: {e}"
+        return f"❌ Error processing prompt: {e}", 0
 
 # === Vector DB Handler for Shikha ===
 def process_prompt_with_df(prompt, df):
@@ -146,7 +146,7 @@ def process_prompt_with_df(prompt, df):
             url = url_match.group(0)
             content = extract_text_from_url(url)
             enriched_prompt = prompt.replace(url, f"\n\n{content}\n\n")
-            return call_llm(enriched_prompt)[0]
+            return call_llm(enriched_prompt)
 
         month_match = re.search(r"(January|February|March|April|May|June|July|August|September|October|November|December)", prompt, re.IGNORECASE)
         if month_match:
@@ -158,18 +158,18 @@ def process_prompt_with_df(prompt, df):
                     top_url = filtered.sort_values("visitcount", ascending=False)["url"].iloc[0]
                     content = extract_text_from_url(top_url)
                     prompt_with_url = f"{prompt}\n\nTop visited page content:\n{content}\n\n"
-                    return call_llm(prompt_with_url)[0]
+                    return call_llm(prompt_with_url)
             except Exception as e:
                 print(f"⚠️ Month parsing error: {e}")
 
         if any(word in prompt.lower() for word in ["visit", "url", "title", "page", "click", "website", "link"]):
             df_text = df[["visitDate", "url", "visitcount", "cleaned_title"]].astype(str).to_string(index=False)
             full_prompt = f"You are a smart assistant. Here is some web visit data:\n\n{df_text}\n\nNow answer:\n{prompt}"
-            return call_llm(full_prompt)[0]
+            return call_llm(full_prompt)
 
         content = search_web_with_tavily(prompt)
         final_prompt = f"Based on this web search result, answer the query:\n\n{content}\n\nQuestion: {prompt}"
-        return call_llm(final_prompt)[0]
+        return call_llm(final_prompt)
 
     except Exception as e:
-        return f"❌ Error in Shikha's prompt handling: {e}"
+        return f"❌ Error in Shikha's prompt handling: {e}", 0
