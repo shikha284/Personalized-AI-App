@@ -238,71 +238,61 @@ if st.session_state.step == "web_insights":
 
     if df_web.empty:
         st.error("⚠️ No web visit data available.")
-        st.stop()
+    else:
+        tab1, tab2 = st.tabs(["📊 Shikha's Web Activity", "🌐 External Web Search"])
 
-    tab1, tab2 = st.tabs(["🌍 External Web Search", "🧠 Shikha’s Web Activity"])
+        with tab1:
+            st.markdown("### 🔝 Top 5 Websites by Month")
+            col1, col2 = st.columns(2)
+            with col1:
+                selected_year = st.selectbox("Year", sorted(df_web['visitDate'].dt.year.unique(), reverse=True))
+            with col2:
+                selected_month = st.selectbox(
+                    "Month",
+                    [("January", 1), ("February", 2), ("March", 3), ("April", 4), ("May", 5), ("June", 6),
+                     ("July", 7), ("August", 8), ("September", 9), ("October", 10), ("November", 11), ("December", 12)],
+                    format_func=lambda x: x[0]
+                )
 
-    # --- External Search Tab ---
-    with tab1:
-        st.markdown("#### Ask any real-time question on the internet using web search:")
-        col1, col2 = st.columns([5, 1])
-        with col1:
-            web_prompt = st.text_input("Search Prompt", key="web_search_input")
-        with col2:
-            web_search_btn = st.button("🔍 Search", key="web_search_btn")
+            if st.button("📊 Show Top Sites"):
+                top_sites = top_visited_websites(df_web, selected_year, selected_month[1])
+                if isinstance(top_sites, str):
+                    st.warning(top_sites)
+                elif top_sites.empty:
+                    st.info(f"No data for {selected_month[0]} {selected_year}.")
+                else:
+                    st.dataframe(top_sites)
 
-        if web_search_btn and web_prompt:
-            with st.spinner("Searching the live web..."):
-                response = process_prompt_with_webdata(web_prompt, pd.DataFrame())
-            st.markdown("### 🌐 Web Result")
-            st.success(response)
+            st.markdown("### 🤖 Ask Anything from Shikha's History")
+            colq1, colq2 = st.columns([5, 1])
+            with colq1:
+                shikha_query = st.text_input("Ask using her name to trigger vector DB", key="shikha_query")
+            with colq2:
+                ask_shikha = st.button("🧠 Ask", key="ask_shikha")
 
-    # --- Shikha History Tab ---
-    with tab2:
-        st.markdown("#### Ask anything from Shikha’s web activity history:")
+            if ask_shikha and shikha_query:
+                with st.spinner("Thinking..."):
+                    response = process_prompt_with_webdata(shikha_query, df_web)
+                    st.success(response)
+                    if st.checkbox("🧪 Evaluate", key="eval_shikha"):
+                        result = evaluate_web_response(shikha_query, response)
+                        st.code(result)
 
-        # Generic prompt input
-        col3, col4 = st.columns([5, 1])
-        with col3:
-            shikha_prompt = st.text_input("Ask your question (include 'Shikha')", key="shikha_query_input")
-        with col4:
-            shikha_btn = st.button("🧠 Ask", key="shikha_query_btn")
+        with tab2:
+            st.markdown("### 🔍 Real-time Web Lookup")
+            col1, col2 = st.columns([5, 1])
+            with col1:
+                search_query = st.text_input("Search the web (exclude 'Shikha')", key="web_prompt")
+            with col2:
+                run_search = st.button("🌍 Search", key="web_search_btn")
 
-        # Top visited sites filter
-        st.markdown("#### 📅 Top 5 Websites by Month")
-        col5, col6 = st.columns(2)
-        with col5:
-            selected_year = st.selectbox("Year", sorted(df_web['visitDate'].dt.year.unique(), reverse=True))
-        with col6:
-            selected_month = st.selectbox(
-                "Month",
-                [
-                    ("January", 1), ("February", 2), ("March", 3), ("April", 4), ("May", 5), ("June", 6),
-                    ("July", 7), ("August", 8), ("September", 9), ("October", 10),
-                    ("November", 11), ("December", 12)
-                ],
-                format_func=lambda x: x[0]
-            )
-
-        if st.button("📊 Show Top 5 Visited Websites"):
-            top_sites = top_visited_websites(df_web, selected_year, selected_month[1])
-            if isinstance(top_sites, str):
-                st.warning(top_sites)
-            elif top_sites.empty:
-                st.info(f"No visit data for {selected_month[0]} {selected_year}.")
-            else:
-                st.markdown(f"### 🏆 Top 5 Sites Visited by Shikha in {selected_month[0]} {selected_year}")
-                st.dataframe(top_sites)
-
-        if shikha_btn and shikha_prompt:
-            with st.spinner("Analyzing Shikha's browsing history..."):
-                result = process_prompt_with_webdata(shikha_prompt, df_web)
-            st.markdown("### 🤖 Response")
-            st.success(result)
-
-            if st.checkbox("🧪 Show Evaluation"):
-                st.markdown("### 📊 Evaluation")
-                st.code(evaluate_web_response(shikha_prompt, result))
+            if run_search and search_query:
+                with st.spinner("Fetching from the web..."):
+                    response = process_prompt_with_webdata(search_query, pd.DataFrame())
+                    st.success(response)
+                    if st.checkbox("🧪 Evaluate", key="eval_web"):
+                        result = evaluate_web_response(search_query, response)
+                        st.code(result)
 
     if st.button("🔙 Return to Main Menu"):
         st.session_state.step = "greet"
