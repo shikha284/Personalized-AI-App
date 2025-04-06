@@ -262,36 +262,40 @@ if st.session_state.step == "web_insights":
                 st.dataframe(top_sites)
 
         st.markdown("---")
-        st.subheader("💬 Ask Shikha's Web History")
+        st.subheader("💬 Ask from Shikha's Web History")
 
         colq1, colq2 = st.columns([5, 1])
         with colq1:
-            shikha_query = st.text_input("Ask a question (mention 'Shikha' to use her history):")
+            shikha_query = st.text_input("Ask a question about Shikha's browsing history (mention 'Shikha' in prompt):")
         with colq2:
-            query_btn = st.button("🧠 Ask")
+            query_btn = st.button("🧠 Ask from History")
 
         if query_btn and shikha_query:
-            st.markdown("#### 🤖 Response")
+            st.markdown("#### 🤖 Response from Shikha's History")
             result = process_prompt_with_webdata(shikha_query, df_web)
             st.success(result)
 
-            if st.checkbox("🧪 Show Evaluation"):
+            if st.checkbox("🧪 Show Evaluation for History"):
                 st.markdown("### 📊 Evaluation")
                 st.code(evaluate_web_response(shikha_query, result))
 
         st.markdown("---")
-        st.subheader("🌐 External Web Search")
+        st.subheader("🌐 Ask the Web via Tavily Search")
 
         col_ext_1, col_ext_2 = st.columns([5, 1])
         with col_ext_1:
-            generic_web_prompt = st.text_input("Search something on the internet (without 'Shikha'):")
+            generic_web_prompt = st.text_input("Ask a question on the internet (avoid using 'Shikha' here):")
         with col_ext_2:
-            websearch_btn = st.button("🌍 Search")
+            websearch_btn = st.button("🌍 Web Search")
 
         if websearch_btn and generic_web_prompt:
-            st.markdown("#### 🌐 Web Result")
-            response = process_prompt_with_webdata(generic_web_prompt, pd.DataFrame())  # empty df triggers Tavily
+            st.markdown("#### 🌐 Web Search Result")
+            response = process_prompt_with_webdata(generic_web_prompt, pd.DataFrame())
             st.success(response)
+
+            if st.checkbox("🧪 Show Evaluation for Web Search"):
+                st.markdown("### 📊 Evaluation")
+                st.code(evaluate_web_response(generic_web_prompt, response))
 
     if st.button("🔙 Return to Main Menu"):
         st.session_state.step = "greet"
