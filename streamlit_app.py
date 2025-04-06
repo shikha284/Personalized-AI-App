@@ -244,10 +244,10 @@ if st.session_state.step == "web_insights":
 
     # --- External Search Tab ---
     with tab1:
-        st.markdown("#### Ask any real-time question on the internet using Tavily search:")
+        st.markdown("#### Ask any real-time question on the internet using web search:")
         col1, col2 = st.columns([5, 1])
         with col1:
-            web_prompt = st.text_input("Search Prompt (avoid 'Shikha')", key="web_search_input")
+            web_prompt = st.text_input("Search Prompt", key="web_search_input")
         with col2:
             web_search_btn = st.button("🔍 Search", key="web_search_btn")
 
@@ -259,7 +259,7 @@ if st.session_state.step == "web_insights":
 
     # --- Shikha History Tab ---
     with tab2:
-        st.markdown("#### Ask anything from Shikha’s web activity history (mention 'Shikha'):")
+        st.markdown("#### Ask anything from Shikha’s web activity history:")
 
         # Generic prompt input
         col3, col4 = st.columns([5, 1])
