@@ -256,7 +256,7 @@ if st.session_state.step == "web_insights":
                     ("June", 6), ("July", 7), ("August", 8), ("September", 9), ("October", 10),
                     ("November", 11), ("December", 12)
                 ],
-                index=1,  # Default to February
+                index=1,
                 format_func=lambda x: x[0]
             )
 
@@ -267,37 +267,27 @@ if st.session_state.step == "web_insights":
             elif top_sites.empty:
                 st.info(f"No visit data for {selected_month[0]} {selected_year}.")
             else:
-                st.markdown(f"### 🔝 Top 5 Most Visited Websites in **{selected_month[0]} {selected_year}**")
+                st.markdown(f"### 🔝 Top 5 Most Visited Websites by Shikha in **{selected_month[0]} {selected_year}**")
                 st.dataframe(top_sites)
 
         st.markdown("---")
-        st.subheader("💬 Ask a Question about Web Activity")
-        user_prompt = st.text_input("Enter your question about web browsing or the internet:")
-        if user_prompt:
-            # Check for automatic top visited query
-            if "top" in user_prompt.lower() and "visited" in user_prompt.lower() and "web" in user_prompt.lower():
-                if "february 2025" in user_prompt.lower():
-                    auto_sites = top_visited_websites(df_web, 2025, 2)
-                    st.markdown("### 📌 Auto Query Result: Top 5 Visited Websites in February 2025")
-                    st.dataframe(auto_sites)
-                else:
-                    response = process_prompt_with_webdata(user_prompt, df_web)
-                    st.markdown("### 🤖 Response")
-                    st.success(response)
+        st.subheader("💬 Ask a Question")
 
-                    if st.checkbox("🧪 Show Evaluation"):
-                        evaluation = evaluate_web_response(user_prompt, response)
-                        st.markdown("### 📊 Evaluation")
-                        st.code(evaluation)
-            else:
-                response = process_prompt_with_webdata(user_prompt, df_web)
-                st.markdown("### 🤖 Response")
-                st.success(response)
+        colq1, colq2 = st.columns([5, 1])
+        with colq1:
+            user_prompt = st.text_input("Question (e.g., top visited by Shikha, or any web query)")
+        with colq2:
+            run_query = st.button("🔍 Ask")
 
-                if st.checkbox("🧪 Show Evaluation"):
-                    evaluation = evaluate_web_response(user_prompt, response)
-                    st.markdown("### 📊 Evaluation")
-                    st.code(evaluation)
+        if run_query and user_prompt:
+            response = process_prompt_with_webdata(user_prompt, df_web)
+            st.markdown("### 🤖 Response")
+            st.success(response)
+
+            if st.checkbox("🧪 Show Evaluation"):
+                evaluation = evaluate_web_response(user_prompt, response)
+                st.markdown("### 📊 Evaluation")
+                st.code(evaluation)
 
     if st.button("🔙 Return to Main Menu"):
         st.session_state.step = "greet"
