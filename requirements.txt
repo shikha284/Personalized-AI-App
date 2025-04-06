@@ -16,4 +16,3 @@ zoomus
 html2text
 beautifulsoup4
 tavily-python
-sentence-transformers
