@@ -1,3 +1,5 @@
+import torch._classes
+torch._classes.__path__ = []
 import streamlit as st
 import pandas as pd
 import time
