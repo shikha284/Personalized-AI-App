@@ -98,28 +98,3 @@ Respond with: TruthfulQA: <score>/5"""
     except Exception as e:
         return f"❌ TruthfulQA eval failed: {e}"
 
-# -------------------- Accuracy (Score Only) -------------------- #
-def accuracy_eval(prediction: str, reference: str) -> str:
-    prompt = f"""
-Compare the generated output to the reference and rate accuracy on a scale from 1 to 5:
-- 5 = Fully accurate
-- 4 = Mostly accurate
-- 3 = Partially accurate
-- 2 = Mostly inaccurate
-- 1 = Totally inaccurate
-
-Reference:
-{reference}
-
-Prediction:
-{prediction}
-
-Respond with: Accuracy: <score>/5"""
-    try:
-        response = groq_eval.chat.completions.create(
-            model="llama-3.3-70b-specdec",
-            messages=[{"role": "user", "content": prompt}]
-        )
-        return response.choices[0].message.content.strip()
-    except Exception as e:
-        return f"❌ Accuracy eval failed: {e}"
