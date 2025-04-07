@@ -11,7 +11,6 @@ pytz
 psycopg2-binary
 groq
 python-dateutil
-sendgrid
 zoomus
 html2text
 beautifulsoup4
