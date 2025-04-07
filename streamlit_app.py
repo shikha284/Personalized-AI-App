@@ -138,11 +138,16 @@ if st.session_state.step == "email_assistant":
             summary = summarize_email(email["body"])
             st.subheader("📌 Summary")
             st.info(summary)
+
             with st.expander("📊 Evaluation Metrics"):
                 st.markdown("**G-Eval**")
                 st.code(g_eval(summary, reference=email["body"]))
                 st.markdown("**IFEval**")
                 st.code(if_eval(summary, source=email["body"]))
+                st.markdown("**TruthfulQA**")
+                st.code(truthful_qa_eval(summary))
+                st.markdown("**HALUeval**")
+                st.code(halu_eval(summary, {"original_email": email["body"]}))
 
         elif email_action == "Draft Reply":
             st.subheader("✉️ Drafted Reply")
@@ -158,12 +163,14 @@ if st.session_state.step == "email_assistant":
             }
 
             with st.expander("📊 Evaluation Metrics"):
-                st.markdown("**HALUeval**")
-                st.code(halu_eval(reply, input_struct))
+                st.markdown("**G-Eval**")
+                st.code(g_eval(reply, reference=email["body"]))
                 st.markdown("**IFEval**")
                 st.code(if_eval(reply, source=email["body"]))
                 st.markdown("**TruthfulQA**")
                 st.code(truthful_qa_eval(reply))
+                st.markdown("**HALUeval**")
+                st.code(halu_eval(reply, input_struct))
 
             if st.button("✅ Send Reply"):
                 status = send_reply_email(reply, email)
@@ -174,7 +181,7 @@ if st.session_state.step == "email_assistant":
 
     if st.button("🔙 Return to Main Menu"):
         st.session_state.step = "greet"
-
+        
 if st.session_state.step == "summarize_meeting":
     st.subheader("📁 Summarize & Analyze Meetings")
     view_mode = st.radio("Filter by", ["Latest", "By Date"], horizontal=True)
@@ -251,7 +258,7 @@ if st.session_state.step == "calendar_task":
     # Back to main
     if st.button("🔙 Return to Main Menu"):
         st.session_state.step = "greet"
-        
+
 if st.session_state.step == "web_insights":
     st.subheader("🌐 Web Insights Assistant")
     df_web = fetch_web_data()
