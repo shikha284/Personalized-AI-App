@@ -15,3 +15,5 @@ beautifulsoup4
 tavily-python
 zipfile
 os
+sys
+types
