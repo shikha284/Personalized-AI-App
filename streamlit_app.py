@@ -213,21 +213,33 @@ if st.session_state.step == "calendar_task":
     df = get_task_df()
     st.dataframe(df)
 
+    # Suggest slot and show evaluations
     if st.button("✨ Suggest Doctor Appointment Slot Today"):
-        msg = suggest_task_slot_today("Doctor Appointment", duration_minutes=30)
-        st.success(msg)
+        st.subheader("📅 Suggesting Available Time Slot")
+        with st.spinner("Checking available calendar slots..."):
+            result_msg = suggest_task_slot_today("Doctor Appointment", duration_minutes=30)
 
+        if result_msg.startswith("✅"):
+            st.success(result_msg)
+            st.markdown("✅ Evaluation metrics shown above ⬆️")
+        else:
+            st.warning(result_msg)
+
+    # Delete last task today
     if st.button("🗑️ Delete Today's Last Task"):
         msg = delete_last_task_today()
         st.warning(msg)
 
     st.markdown("---")
     st.subheader("📅 Additional Calendar Actions")
+
+    # Delete by selected date
     selected_date = st.date_input("📆 Choose a date to delete all tasks")
     if st.button("❌ Delete Tasks on Selected Date"):
         msg = delete_tasks_by_date(selected_date)
         st.warning(msg)
 
+    # Show monthly tasks
     month_input = st.text_input("📅 Enter month to view tasks (format: YYYY-MM)", value=datetime.now().strftime("%Y-%m"))
     if st.button("📋 Show Monthly Calendar Tasks"):
         cal_df = show_tasks_by_month(month_input)
@@ -236,9 +248,10 @@ if st.session_state.step == "calendar_task":
         else:
             st.dataframe(cal_df)
 
+    # Back to main
     if st.button("🔙 Return to Main Menu"):
         st.session_state.step = "greet"
-
+        
 if st.session_state.step == "web_insights":
     st.subheader("🌐 Web Insights Assistant")
     df_web = fetch_web_data()
