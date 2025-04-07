@@ -1,11 +1,17 @@
+# zoom_utils.py
 import os, base64, pytz, requests, psycopg2
 import pandas as pd
 import time
 from datetime import datetime, timedelta
 from email.mime.text import MIMEText
 from googleapiclient.discovery import build
-from groq import Groq
 import streamlit as st
+
+# Hotfix for PyTorch Streamlit crash
+import sys
+if 'torch._classes' in sys.modules:
+    sys.modules['torch._classes'].__path__ = []
+
 from auth_utils import authenticate_google
 from eval_utils import g_eval, if_eval, halu_eval, truthful_qa_eval
 
@@ -13,6 +19,7 @@ ZOOM_CLIENT_ID = st.secrets["zoom"]["client_id"]
 ZOOM_CLIENT_SECRET = st.secrets["zoom"]["client_secret"]
 ZOOM_ACCOUNT_ID = st.secrets["zoom"]["account_id"]
 GROQ_API_KEY = st.secrets["groq"]["api_key"]
+from groq import Groq
 groq_client = Groq(api_key=GROQ_API_KEY)
 
 DB_CONFIG = {
@@ -106,7 +113,6 @@ def schedule_zoom_meeting(topic, start_time, duration, time_zone):
 
     if res.status_code == 201:
         join_url = res.json().get("join_url")
-        # ✅ HALUeval on Zoom agenda
         agenda_text = meeting_data["agenda"]
         input_struct = {"topic": topic, "start_time": start_time.isoformat(), "duration": duration}
         halu_score = halu_eval(agenda_text, input_struct)
@@ -150,7 +156,6 @@ def summarize_meetings(df):
             messages=[{"role": "user", "content": f"Analyze the sentiment of this meeting transcript:\n\n{content}"}]
         ).choices[0].message.content
 
-        # ✅ Apply all evaluations
         g_score = g_eval(summary, reference=content)
         if_score = if_eval(summary, source=content)
         truth_score = truthful_qa_eval(sentiment)
