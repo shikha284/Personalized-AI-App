@@ -16,7 +16,7 @@ from zoom_utils import (
     get_transcripts,
     add_to_calendar
 )
-from eval_utils import g_eval, if_eval, halu_eval, truthful_qa_eval, q2_eval
+from eval_utils import g_eval, if_eval, halu_eval, truthful_qa_eval
 from calendar_utils import (
     suggest_task_slot_today,
     delete_last_task_today,
