@@ -8,6 +8,7 @@ from bs4 import BeautifulSoup
 from groq import Groq
 import streamlit as st
 import time
+from eval_utils import g_eval, if_eval, halu_eval, truthful_qa_eval
 
 # === Groq API Client ===
 GROQ_API_KEY = st.secrets["groq"]["api_key"]
@@ -100,24 +101,10 @@ def top_visited_websites(df, year, month, top_n=5):
 
 # === Web Evaluation ===
 def evaluate_web_response(user_prompt, llm_response):
-    eval_prompt = f"""
-Evaluate the assistant's response to a user query.
-
-User Prompt:
-{user_prompt}
-
-Response:
-{llm_response}
-
-Rate on:
-- G-Eval (out of 10)
-- Is it hallucinated? (Yes/No and brief reasoning)
-
-Format:
-G-Eval: <score>/10
-H-Eval: <Yes/No> - <reason>
-"""
-    return call_llm(eval_prompt)[0]
+    g_score = g_eval(llm_response, user_prompt)
+    i_score = if_eval(llm_response, user_prompt)
+    t_score = truthful_qa_eval(llm_response)
+    return f"{g_score}\n{ i_score }\n{ t_score }"
 
 # === Prompt processor with routing ===
 def process_prompt_with_webdata(prompt, df):
