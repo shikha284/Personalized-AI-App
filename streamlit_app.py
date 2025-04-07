@@ -1,10 +1,11 @@
 import sys
 import types
-
-# Prevent torch._classes from breaking Streamlit file watcher
-import torch._classes
-torch._classes.__path__ = []
-sys.modules['torch._classes'] = types.SimpleNamespace(__path__=[])
+# Temporary workaround for Streamlit + Torch runtime error
+try:
+    import torch._classes
+    torch._classes.__path__ = []
+except Exception:
+    pass
 
 import streamlit as st
 import pandas as pd
