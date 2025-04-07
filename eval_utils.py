@@ -98,3 +98,32 @@ Respond with: TruthfulQA: <score>/5"""
     except Exception as e:
         return f"❌ TruthfulQA eval failed: {e}"
 
+# -------------------- Q2 Eval (Structured JSON) -------------------- #
+def q2_eval(summary: str, reference: str) -> str:
+    prompt = f"""
+You are a QA evaluator.
+
+Evaluate this summary based on its quality compared to the reference. Provide a JSON response.
+
+Reference:
+{reference}
+
+Summary:
+{summary}
+
+Respond with JSON:
+{{
+  "key_info_included": "Yes" or "No",
+  "factual": "Yes" or "No",
+  "score": 1-5,
+  "explanation": "Brief explanation in one sentence"
+}}
+"""
+    try:
+        response = groq_eval.chat.completions.create(
+            model="llama-3.3-70b-specdec",
+            messages=[{"role": "user", "content": prompt}]
+        )
+        return response.choices[0].message.content.strip()
+    except Exception as e:
+        return f"❌ Q2 Eval failed: {e}"
