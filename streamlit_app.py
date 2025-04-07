@@ -137,8 +137,6 @@ if st.session_state.step == "email_assistant":
                 st.code(g_eval(summary, reference=email["body"]))
                 st.markdown("**IFEval**")
                 st.code(if_eval(summary, source=email["body"]))
-                st.markdown("**Q² Evaluation**")
-                st.code(q2_eval(summary, reference=email["body"]))
 
         elif email_action == "Draft Reply":
             st.subheader("✉️ Drafted Reply")
@@ -200,8 +198,6 @@ if st.session_state.step == "summarize_meeting":
                 st.code(if_eval(summary, source=joined_text))
                 st.markdown("**TruthfulQA - Sentiment**")
                 st.code(truthful_qa_eval(sentiment))
-                st.markdown("**Q² Evaluation**")
-                st.code(q2_eval(summary, reference=joined_text))
 
     if st.button("🔙 Return to Main Menu"):
         st.session_state.step = "greet"
