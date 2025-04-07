@@ -26,51 +26,6 @@ from calendar_utils import (
 )
 from web_utils import fetch_web_data, process_prompt_with_webdata, evaluate_web_response, top_visited_websites
 
-# === Unzip Finetuned Model if Needed ===
-def unzip_model_if_needed(zip_path="models/shikha_llama3_finetune_latest.zip", extract_to="models/shikha_llama3_finetune_latest"):
-    if not os.path.exists(extract_to):
-        with zipfile.ZipFile(zip_path, 'r') as zip_ref:
-            zip_ref.extractall(extract_to)
-
-unzip_model_if_needed()
-
-# === Load Shikha's Finetuned Model ===
-@st.cache_resource(show_spinner="Loading Shikha's personalized LLM...")
-def load_shikha_model():
-    model_path = "models/shikha_llama3_finetune_latest"
-    tokenizer = AutoTokenizer.from_pretrained(model_path)
-    model = AutoModelForCausalLM.from_pretrained(model_path).to("cuda" if torch.cuda.is_available() else "cpu")
-    return tokenizer, model
-
-tokenizer, shikha_model = load_shikha_model()
-
-# === Rewrite any LLM output into Shikha's Style ===
-def rewrite_in_shikha_style(base_response):
-    prompt = f"""
-Rewrite the following response in Shikha's tone and writing style:
-
-Response:
-{base_response}
-
-Rewrite:
-"""
-    inputs = tokenizer(prompt, return_tensors="pt", truncation=True).to(shikha_model.device)
-    outputs = shikha_model.generate(**inputs, max_new_tokens=300, do_sample=True, temperature=0.8)
-    rewritten = tokenizer.decode(outputs[0], skip_special_tokens=True)
-    return rewritten.split("Rewrite:")[-1].strip()
-
-# === Patch process_prompt_with_webdata to return both response and time, and rewrite ===
-def process_prompt_with_webdata_with_style(prompt, df):
-    start = time.time()
-    from web_utils import process_prompt_with_webdata  # dynamic import to avoid circular
-    raw_response = process_prompt_with_webdata(prompt, df)[0] if isinstance(process_prompt_with_webdata(prompt, df), tuple) else process_prompt_with_webdata(prompt, df)
-    rewritten = rewrite_in_shikha_style(raw_response)
-    return rewritten, round(time.time() - start, 2)
-
-# Replace original process_prompt_with_webdata with new stylized version
-import builtins
-builtins.process_prompt_with_webdata = process_prompt_with_webdata_with_style
-
 st.cache_data.clear()
 
 st.set_page_config(page_title="Shikha's Personalized AI Assistant", page_icon="🤖")
