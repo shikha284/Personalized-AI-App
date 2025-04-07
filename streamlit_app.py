@@ -11,8 +11,6 @@ import streamlit as st
 st.cache_data.clear()
 import pandas as pd
 import time
-import zipfile
-import os
 from datetime import datetime, timedelta
 from gmail_utils import fetch_latest_email, summarize_email, draft_reply, send_reply_email
 from zoom_utils import (
