@@ -9,6 +9,7 @@ from dateutil import parser
 import streamlit as st
 import psycopg2
 from auth_utils import authenticate_google
+from eval_utils import g_eval, if_eval, halu_eval, truthful_qa_eval
 
 SCOPES = ['https://www.googleapis.com/auth/calendar']
 
@@ -63,7 +64,7 @@ def find_free_slot_today(service, duration_minutes=60):
     tz = pytz.timezone('Asia/Kolkata')
     now = datetime.now(tz)
     start = now.replace(hour=9, minute=0, second=0, microsecond=0)
-    end = now.replace(hour=18, minute=0, second=0, microsecond=0)
+    end = now.replace(hour=16, minute=0, second=0, microsecond=0)  # End before 4 PM
     busy = [(parser.parse(e['start']['dateTime']), parser.parse(e['end']['dateTime'])) for e in list_events_today(service)]
     current = start
     while current + timedelta(minutes=duration_minutes) <= end:
@@ -80,6 +81,9 @@ def suggest_task_slot_today(title: str, duration_minutes: int = 30):
         return "⚠️ No available slot for scheduling."
 
     confirm = st.radio("Would you like to schedule this appointment?", ["Yes", "No"], horizontal=True)
+    slot_text = f"{title} from {start.strftime('%I:%M %p')} to {end.strftime('%I:%M %p')}"
+    input_struct = {"title": title, "start": start.isoformat(), "end": end.isoformat()}
+
     if confirm == "Yes":
         event = {
             'summary': title,
@@ -87,6 +91,13 @@ def suggest_task_slot_today(title: str, duration_minutes: int = 30):
             'end': {'dateTime': end.isoformat(), 'timeZone': 'Asia/Kolkata'}
         }
         service.events().insert(calendarId='primary', body=event).execute()
+
+        st.markdown("### 📊 Evaluation Metrics")
+        st.code(g_eval(slot_text, reference=title))
+        st.code(if_eval(slot_text, source=title))
+        st.code(truthful_qa_eval(slot_text))
+        st.code(halu_eval(slot_text, input_struct))
+
         return f"✅ '{title}' scheduled at {start.strftime('%I:%M %p')} - {end.strftime('%I:%M %p')}"
     else:
         return f"🕐 Suggested time for '{title}' is {start.strftime('%I:%M %p')} - {end.strftime('%I:%M %p')} (Not Scheduled)"
@@ -98,6 +109,9 @@ def schedule_doctor_appointment():
         return None, None, "⚠️ No free slot available today."
 
     confirm = st.radio("Would you like to schedule the doctor appointment?", ["Yes", "No"], horizontal=True)
+    slot_text = f"Doctor Appointment from {start.strftime('%I:%M %p')} to {end.strftime('%I:%M %p')}"
+    input_struct = {"title": "Doctor Appointment", "start": start.isoformat(), "end": end.isoformat()}
+
     if confirm == "Yes":
         event = {
             'summary': 'Doctor Appointment',
@@ -105,6 +119,13 @@ def schedule_doctor_appointment():
             'end': {'dateTime': end.isoformat(), 'timeZone': 'Asia/Kolkata'}
         }
         created = service.events().insert(calendarId='primary', body=event).execute()
+
+        st.markdown("### 📊 Evaluation Metrics")
+        st.code(g_eval(slot_text, reference="Doctor Appointment"))
+        st.code(if_eval(slot_text, source="Doctor Appointment"))
+        st.code(truthful_qa_eval(slot_text))
+        st.code(halu_eval(slot_text, input_struct))
+
         return start, end, f"✅ Appointment scheduled from {start.strftime('%I:%M %p')} to {end.strftime('%I:%M %p')}"
     else:
         return start, end, f"🕐 Suggested doctor appointment slot: {start.strftime('%I:%M %p')} - {end.strftime('%I:%M %p')} (Not Scheduled)"
