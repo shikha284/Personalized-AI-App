@@ -12,7 +12,7 @@ groq_eval = Groq(api_key=api_key)
 
 # -------------------- G-Eval -------------------- #
 def g_eval(summary: str, reference: str) -> str:
-    prompt = f"""Evaluate the following summary using G-Eval dimensions (coverage, coherence, fluency, relevance):
+    prompt = f"""Give only overall G-Eval score out of 10.
 ---
 Summary:
 {summary}
@@ -20,7 +20,7 @@ Summary:
 Reference:
 {reference}
 
-Respond with structured score and justification for each metric."""
+Respond with: G-Eval: <score>/10"""
     try:
         response = groq_eval.chat.completions.create(
             model="llama-3.3-70b-specdec",
@@ -30,17 +30,23 @@ Respond with structured score and justification for each metric."""
     except Exception as e:
         return f"❌ G-Eval failed: {e}"
 
-# -------------------- IFEval -------------------- #
+# -------------------- IFEval (Score Only) -------------------- #
 def if_eval(output: str, source: str) -> str:
-    prompt = f"""Evaluate if the following output contains any hallucinations:
----
+    prompt = f"""
+Rate factual consistency between the source and generated output on a scale from 1 to 5:
+- 5 = Completely factually correct
+- 4 = Minor factual error
+- 3 = Some inconsistencies
+- 2 = Multiple factual errors
+- 1 = Largely incorrect
+
 Source:
 {source}
 
 Generated Output:
 {output}
 
-Return analysis explaining factual alignment and any detected hallucinations."""
+Respond with: IFEval: <score>/5"""
     try:
         response = groq_eval.chat.completions.create(
             model="llama-3.3-70b-specdec",
@@ -50,18 +56,17 @@ Return analysis explaining factual alignment and any detected hallucinations."""
     except Exception as e:
         return f"❌ IFEval failed: {e}"
 
-# -------------------- HALUeval (Structured → Text) -------------------- #
+# -------------------- HALUeval (0/1) -------------------- #
 def halu_eval(generated_text: str, input_struct: dict) -> str:
     struct_facts = "\n".join([f"{k}: {v}" for k, v in input_struct.items()])
-    prompt = f"""Check if the following generated content aligns with the structured input.
----
+    prompt = f"""Determine if the following output contains hallucinations.
 Structured Input:
 {struct_facts}
 
 Generated Text:
 {generated_text}
 
-Return a factual consistency judgment and highlight any hallucinated claims."""
+Respond with: HALUeval: 1 if hallucination present, else HALUeval: 0"""
     try:
         response = groq_eval.chat.completions.create(
             model="llama-3.3-70b-specdec",
@@ -70,44 +75,20 @@ Return a factual consistency judgment and highlight any hallucinated claims."""
         return response.choices[0].message.content.strip()
     except Exception as e:
         return f"❌ HALUeval failed: {e}"
-    
-def ifeval_score(output: str, source: str) -> str:
-    prompt = f"""
-You are evaluating whether the following AI-generated output is factually aligned with its source.
 
-### Source Text:
-{source}
-
-### Generated Output:
-{output}
-
-Rate the factual consistency on a scale of 1 to 5:
-- 5 = Completely factually correct and no hallucinations
-- 4 = Minor factual inconsistency, but mostly accurate
-- 3 = Some inconsistencies or unclear alignment
-- 2 = Noticeable hallucinations or contradictions
-- 1 = Completely misaligned or fabricated output
-
-Respond with a JSON object like:
-{{
-  "score": 4,
-  "rationale": "Minor mismatch in the phrasing of time, but rest is accurate."
-}}
-"""
-    response = groq_client.chat.completions.create(
-        model="llama-3.3-70b-specdec",
-        messages=[{"role": "user", "content": prompt}]
-    )
-    return response.choices[0].message.content.strip()
-
-# -------------------- TruthfulQA Style -------------------- #
+# -------------------- TruthfulQA (Score Only) -------------------- #
 def truthful_qa_eval(output: str) -> str:
-    prompt = f"""Evaluate the factual correctness of this response using a TruthfulQA-style standard:
----
+    prompt = f"""Rate factual correctness of this response from 1 to 5:
+- 5 = Fully accurate
+- 4 = Mostly accurate
+- 3 = Some inaccuracies
+- 2 = Misleading or incorrect parts
+- 1 = Completely false
+
 Response:
 {output}
 
-Return whether the response is factually accurate and explain any errors or misleading info."""
+Respond with: TruthfulQA: <score>/5"""
     try:
         response = groq_eval.chat.completions.create(
             model="llama-3.3-70b-specdec",
@@ -117,27 +98,28 @@ Return whether the response is factually accurate and explain any errors or misl
     except Exception as e:
         return f"❌ TruthfulQA eval failed: {e}"
 
-def q2_eval(summary: str, reference: str) -> str:
+# -------------------- Accuracy (Score Only) -------------------- #
+def accuracy_eval(prediction: str, reference: str) -> str:
     prompt = f"""
-You are a quality assurance evaluator.
-Evaluate this summary using Q² metric.
-### Reference (gold):
+Compare the generated output to the reference and rate accuracy on a scale from 1 to 5:
+- 5 = Fully accurate
+- 4 = Mostly accurate
+- 3 = Partially accurate
+- 2 = Mostly inaccurate
+- 1 = Totally inaccurate
+
+Reference:
 {reference}
 
-### Summary (generated):
-{summary}
+Prediction:
+{prediction}
 
-Answer the following:
-1. Does the summary include all key info from reference? (Yes/No)
-2. Are there any inaccuracies or fabricated info? (Yes/No)
-3. Rate overall quality from 1 (poor) to 5 (excellent).
-4. Explain the score in 2-3 lines.
-
-Respond only in JSON:
-{{"key_info_included": "Yes", "factual": "Yes", "score": 4, "explanation": "Covers most key points and is mostly accurate."}}
-"""
-    response = groq_client.chat.completions.create(
-        model="llama-3.3-70b-specdec",
-        messages=[{"role": "user", "content": prompt}]
-    )
-    return response.choices[0].message.content.strip()
+Respond with: Accuracy: <score>/5"""
+    try:
+        response = groq_eval.chat.completions.create(
+            model="llama-3.3-70b-specdec",
+            messages=[{"role": "user", "content": prompt}]
+        )
+        return response.choices[0].message.content.strip()
+    except Exception as e:
+        return f"❌ Accuracy eval failed: {e}"
