@@ -74,7 +74,6 @@ def extract_plain_text_from_msg(msg) -> str:
                     data = part['body']['data']
                     return base64.urlsafe_b64decode(data.encode("ASCII")).decode("utf-8")
 
-            # Fallback to HTML if no plain text
             for part in payload['parts']:
                 if part['mimeType'] == 'text/html':
                     html_data = part['body']['data']
@@ -82,7 +81,6 @@ def extract_plain_text_from_msg(msg) -> str:
                     return html2text.html2text(html)
 
         else:
-            # Single part fallback
             body = payload.get('body', {}).get('data', '')
             if body:
                 decoded = base64.urlsafe_b64decode(body.encode("ASCII")).decode("utf-8")
@@ -94,10 +92,19 @@ def extract_plain_text_from_msg(msg) -> str:
 
 def summarize_email(email_body: str) -> str:
     summary = call_llm(f"Summarize the following email:\n\n{email_body}")
+    
+    # Evaluation metrics
     g_score = g_eval(summary, reference=email_body)
     if_score = if_eval(summary, source=email_body)
+    truth_score = truthful_qa_eval(summary)
+    input_struct = {"original_email": email_body}
+    halu_score = halu_eval(summary, input_struct)
+
     print("[G-Eval - Email Summary]", g_score)
     print("[IFEval - Email Summary]", if_score)
+    print("[TruthfulQA - Email Summary]", truth_score)
+    print("[HALUeval - Email Summary]", halu_score)
+
     return summary
 
 def draft_reply(email: dict, user_message: str) -> str:
@@ -108,20 +115,23 @@ def draft_reply(email: dict, user_message: str) -> str:
     )
     reply = call_llm(prompt)
 
-    # Evaluate reply
     input_struct = {
         "sender": email["sender"],
         "subject": email["subject"],
         "original_message": email["body"],
         "user_intent": user_message
     }
-    halu_score = halu_eval(reply, input_struct)
-    if_score = if_eval(reply, source=email['body'])
-    truth_score = truthful_qa_eval(reply)
 
-    print("[HALUeval - Draft Reply]", halu_score)
+    # Evaluation metrics
+    g_score = g_eval(reply, reference=email["body"])
+    if_score = if_eval(reply, source=email["body"])
+    truth_score = truthful_qa_eval(reply)
+    halu_score = halu_eval(reply, input_struct)
+
+    print("[G-Eval - Draft Reply]", g_score)
     print("[IFEval - Draft Reply]", if_score)
     print("[TruthfulQA - Draft Reply]", truth_score)
+    print("[HALUeval - Draft Reply]", halu_score)
 
     return reply
 
