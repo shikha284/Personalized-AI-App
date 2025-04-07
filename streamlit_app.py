@@ -8,6 +8,7 @@ except Exception:
     pass
 
 import streamlit as st
+st.cache_data.clear()
 import pandas as pd
 import time
 import zipfile

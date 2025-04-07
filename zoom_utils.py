@@ -6,12 +6,6 @@ from datetime import datetime, timedelta
 from email.mime.text import MIMEText
 from googleapiclient.discovery import build
 import streamlit as st
-
-# Hotfix for PyTorch Streamlit crash
-import sys
-if 'torch._classes' in sys.modules:
-    sys.modules['torch._classes'].__path__ = []
-
 from auth_utils import authenticate_google
 from eval_utils import g_eval, if_eval, halu_eval, truthful_qa_eval
 
